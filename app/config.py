@@ -99,6 +99,7 @@ class Settings(BaseSettings):
     USERS_COLLECTION: str = "users"
     CONVERSATIONS_COLLECTION: str = "conversations"
     FEEDBACK_COLLECTION: str = "feedback"
+    SURVEYS_COLLECTION: str = "surveys"
 
     # ===== FastAPI Settings =====
     APP_NAME: str = "Preceptor Feedback Bot"

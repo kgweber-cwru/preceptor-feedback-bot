@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import settings
 from app.middleware.auth_middleware import AuthMiddleware
-from app.api import auth, conversations, feedback, user
+from app.api import auth, conversations, feedback, user, survey
 
 
 @asynccontextmanager
@@ -71,6 +71,7 @@ app.include_router(auth.router, prefix="/auth", tags=["authentication"])
 app.include_router(conversations.router, prefix="/conversations", tags=["conversations"])
 app.include_router(feedback.router, tags=["feedback"])
 app.include_router(user.router, tags=["user"])
+app.include_router(survey.router, tags=["survey"])
 
 
 # ===== Root Routes =====

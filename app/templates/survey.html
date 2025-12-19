@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Quick Survey - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <!-- Success Banner -->
+    <div class="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+        <div class="flex items-start">
+            <svg class="w-6 h-6 text-green-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+                <h2 class="text-lg font-semibold text-green-900 mb-1">Feedback Session Completed!</h2>
+                <p class="text-green-800">Your feedback for <strong>{{ conversation.student_name }}</strong> has been saved successfully.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Survey Form -->
+    <div class="bg-white rounded-lg shadow-sm p-8 mb-6">
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-gray-900 mb-2">One More Thing...</h1>
+            <p class="text-gray-600">If you have a moment, we'd love to hear about your experience with this tool. Your feedback helps us improve!</p>
+        </div>
+
+        <form method="post" action="/conversations/{{ conversation.conversation_id }}/survey" class="space-y-6">
+            <!-- Preceptor Name (Optional) -->
+            <div>
+                <label for="preceptor_name" class="block text-sm font-medium text-gray-700 mb-2">
+                    Your Name (optional)
+                </label>
+                <input
+                    type="text"
+                    id="preceptor_name"
+                    name="preceptor_name"
+                    placeholder="Dr. Smith"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+            </div>
+
+            <!-- Tool Rating (Required) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-3">
+                    How helpful was the tool? <span class="text-red-500">*</span>
+                </label>
+                <div class="space-y-3">
+                    {% for rating in tool_ratings %}
+                    <label class="flex items-start p-4 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                        <input
+                            type="radio"
+                            name="tool_rating"
+                            value="{{ rating }}"
+                            required
+                            class="mt-1 mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span class="text-gray-900">{{ rating }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Comments (Optional) -->
+            <div>
+                <label for="comments" class="block text-sm font-medium text-gray-700 mb-2">
+                    Additional Comments or Suggestions (optional)
+                </label>
+                <textarea
+                    id="comments"
+                    name="comments"
+                    rows="4"
+                    placeholder="What would make this tool more useful? Any suggestions for improvement?"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                ></textarea>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-3 flex-wrap pt-4 border-t border-gray-200">
+                <button
+                    type="submit"
+                    class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                    Submit Feedback
+                </button>
+
+                <form method="post" action="/conversations/{{ conversation.conversation_id }}/survey/skip" class="inline">
+                    <button
+                        type="submit"
+                        class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium">
+                        Skip for Now
+                    </button>
+                </form>
+            </div>
+        </form>
+    </div>
+
+    <!-- Privacy Note -->
+    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <p class="text-sm text-gray-600">
+            <strong>Privacy:</strong> Your responses help us improve this tool for all faculty.
+            This survey is optional and completely anonymous unless you choose to include your name.
+        </p>
+    </div>
+
+    <!-- Skip Link for Mobile -->
+    <div class="text-center mt-6">
+        <a href="/dashboard" class="text-gray-600 hover:text-gray-700 text-sm">
+            Skip to Dashboard →
+        </a>
+    </div>
+</div>
+{% endblock %}

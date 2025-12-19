@@ -14,6 +14,7 @@ from app.config import settings
 from app.models.user import User, UserCreate
 from app.models.conversation import Conversation, ConversationSummary, ConversationStatus
 from app.models.feedback import Feedback, FeedbackVersion
+from app.models.survey import Survey, SurveyCreate
 
 
 class FirestoreService:
@@ -494,3 +495,100 @@ class FirestoreService:
         data = doc.to_dict()
         data["feedback_id"] = doc.id
         return Feedback(**data)
+
+    # ===== Survey Operations =====
+
+    async def create_survey(
+        self,
+        conversation_id: str,
+        user_id: str,
+        student_name: str,
+        survey_data: SurveyCreate,
+        skipped: bool = False,
+    ) -> Survey:
+        """
+        Create survey response in Firestore.
+
+        Args:
+            conversation_id: Associated conversation ID
+            user_id: User document ID
+            student_name: Student being evaluated
+            survey_data: Survey form data
+            skipped: Whether user skipped the survey
+
+        Returns:
+            Created Survey object
+        """
+        surveys_ref = self.db.collection(settings.SURVEYS_COLLECTION)
+
+        survey_dict = {
+            "conversation_id": conversation_id,
+            "user_id": user_id,
+            "student_name": student_name,
+            "preceptor_name": survey_data.preceptor_name,
+            "tool_rating": survey_data.tool_rating.value,
+            "comments": survey_data.comments,
+            "submitted_at": datetime.utcnow(),
+            "skipped": skipped,
+        }
+
+        doc_ref = surveys_ref.add(survey_dict)[1]
+        survey_dict["survey_id"] = doc_ref.id
+
+        return Survey(**survey_dict)
+
+    async def get_survey_by_conversation(
+        self, conversation_id: str
+    ) -> Optional[Survey]:
+        """
+        Get survey for a specific conversation.
+
+        Args:
+            conversation_id: Conversation document ID
+
+        Returns:
+            Survey object if found, None otherwise
+        """
+        surveys_ref = self.db.collection(settings.SURVEYS_COLLECTION)
+        query = surveys_ref.where(
+            filter=FieldFilter("conversation_id", "==", conversation_id)
+        ).limit(1)
+
+        docs = list(query.stream())
+        if not docs:
+            return None
+
+        doc = docs[0]
+        data = doc.to_dict()
+        data["survey_id"] = doc.id
+        return Survey(**data)
+
+    async def get_surveys_by_user(
+        self, user_id: str, limit: int = 50
+    ) -> List[Survey]:
+        """
+        Get all surveys submitted by a user.
+
+        Args:
+            user_id: User document ID
+            limit: Max surveys to return
+
+        Returns:
+            List of Survey objects
+        """
+        surveys_ref = self.db.collection(settings.SURVEYS_COLLECTION)
+        query = (
+            surveys_ref.where(filter=FieldFilter("user_id", "==", user_id))
+            .order_by("submitted_at", direction=firestore.Query.DESCENDING)
+            .limit(limit)
+        )
+
+        docs = list(query.stream())
+        surveys = []
+
+        for doc in docs:
+            data = doc.to_dict()
+            data["survey_id"] = doc.id
+            surveys.append(Survey(**data))
+
+        return surveys

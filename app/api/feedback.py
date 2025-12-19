@@ -177,7 +177,7 @@ async def finish_conversation(
     firestore: FirestoreService = Depends(get_firestore),
 ):
     """
-    Mark conversation as completed and redirect to dashboard.
+    Mark conversation as completed and redirect to survey page.
     """
     try:
         # Get conversation
@@ -193,10 +193,10 @@ async def finish_conversation(
         from app.models.conversation import ConversationStatus
         await firestore.update_conversation_status(conversation_id, ConversationStatus.COMPLETED)
 
-        # Redirect to dashboard
+        # Redirect to survey page
         return HTMLResponse(
             content="",
-            headers={"HX-Redirect": "/dashboard"}
+            headers={"HX-Redirect": f"/conversations/{conversation_id}/survey"}
         )
 
     except Exception as e:
