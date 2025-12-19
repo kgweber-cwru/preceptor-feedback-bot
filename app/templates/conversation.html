@@ -136,7 +136,21 @@
 
         <!-- Chat Input Form (sticky on mobile, static on desktop) -->
         {% if not should_conclude and conversation.status == 'active' %}
-        <div id="chat-input-container" class="fixed sm:static bottom-0 left-0 right-0 bg-white border-t sm:border-0 border-gray-200 p-4 shadow-lg sm:shadow-none z-20 sm:mt-0 -mt-20">
+        <div id="chat-input-container" class="fixed sm:static bottom-0 left-0 right-0 bg-white border-t sm:border-0 border-gray-200 p-3 sm:p-4 shadow-lg sm:shadow-none z-20 sm:mt-0 -mt-20">
+            <!-- Generate Feedback Section (Mobile: above input, Desktop: below) -->
+            {% if should_conclude or conversation.status == 'active' %}
+            <div id="generate-feedback-section" class="mb-3 sm:hidden">
+                <button
+                    id="mobile-generate-btn"
+                    onclick="window.location.href='/conversations/{{ conversation.conversation_id }}/feedback'"
+                    disabled
+                    aria-label="Generate structured feedback for this conversation"
+                    class="w-full px-4 py-3 bg-gray-400 text-white rounded-lg transition-colors font-medium text-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                    <span id="generate-btn-text">📝 Scroll to read all messages first</span>
+                </button>
+            </div>
+            {% endif %}
+
             <form
                 hx-post="/conversations/{{ conversation.conversation_id }}/messages"
                 hx-ext="json-enc"
@@ -177,9 +191,9 @@
         </div>
         {% endif %}
 
-        <!-- Conclude / Generate Feedback Button -->
+        <!-- Conclude / Generate Feedback Button (Desktop only) -->
         {% if should_conclude or conversation.status == 'active' %}
-        <div class="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
+        <div class="hidden sm:block mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
                 <div class="flex-1">
                     <p class="text-sm text-gray-600">Ready to generate feedback?</p>
@@ -219,6 +233,8 @@
     document.body.addEventListener('htmx:afterSwap', function(evt) {
         if (evt.detail.target.id === 'message-list') {
             messageList.scrollTop = messageList.scrollHeight;
+            // After new message, reset scroll detection
+            checkScrollPosition();
         }
     });
 
@@ -240,11 +256,47 @@
             // Update footer counter
             const footerCounter = document.getElementById('turn-counter-footer');
             if (footerCounter) {
-                footerCounter.textContent = 'Press Enter to send • ' + evt.detail.count + ' turns used';
+                footerCounter.textContent = {{ conversation.metadata.total_turns }} + ' turns used';
             }
 
             console.log('Turn counters updated to:', evt.detail.count);
         }
     });
+
+    // Mobile: Enable "Generate Feedback" button when user scrolls to bottom
+    const mobileGenerateBtn = document.getElementById('mobile-generate-btn');
+    const generateBtnText = document.getElementById('generate-btn-text');
+    let hasScrolledToBottom = false;
+
+    function checkScrollPosition() {
+        if (!messageList || !mobileGenerateBtn) return;
+
+        // Check if scrolled to bottom (with 50px tolerance)
+        const isAtBottom = messageList.scrollHeight - messageList.scrollTop - messageList.clientHeight < 50;
+
+        if (isAtBottom && !hasScrolledToBottom) {
+            hasScrolledToBottom = true;
+            enableGenerateButton();
+        }
+    }
+
+    function enableGenerateButton() {
+        if (!mobileGenerateBtn) return;
+
+        mobileGenerateBtn.disabled = false;
+        mobileGenerateBtn.classList.remove('bg-gray-400');
+        mobileGenerateBtn.classList.add('bg-green-600', 'hover:bg-green-700', 'active:bg-green-800');
+        if (generateBtnText) {
+            generateBtnText.textContent = '📝 Generate Feedback';
+        }
+    }
+
+    // Listen for scroll events on message list
+    if (messageList && mobileGenerateBtn) {
+        messageList.addEventListener('scroll', checkScrollPosition);
+
+        // Check initial position (might already be at bottom)
+        setTimeout(checkScrollPosition, 100);
+    }
 </script>
 {% endblock %}
