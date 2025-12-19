@@ -52,6 +52,21 @@
             overflow-wrap: break-word;
             word-break: break-word;
         }
+
+        /* Touch target optimization (Apple/Google guidelines: 48x48px minimum) */
+        button,
+        a.btn,
+        input[type="submit"],
+        input[type="button"],
+        select {
+            min-height: 48px;
+        }
+
+        /* Ensure proper touch action for better mobile responsiveness */
+        button,
+        a {
+            touch-action: manipulation; /* Removes 300ms tap delay */
+        }
     </style>
 
     {% block head %}{% endblock %}
@@ -61,6 +76,19 @@
     <div id="global-message" class="hidden fixed top-4 right-4 z-50 max-w-md">
         <div id="message-content" class="rounded-lg shadow-lg p-4">
             <span id="message-text"></span>
+        </div>
+    </div>
+
+    <!-- Loading Overlay for major operations -->
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-40 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 shadow-xl max-w-sm mx-4">
+            <div class="flex items-center space-x-3">
+                <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span id="loading-text" class="text-lg font-medium text-gray-900">Loading...</span>
+            </div>
         </div>
     </div>
 
@@ -185,6 +213,36 @@
             }
 
             showMessage(message, 'error');
+        });
+
+        // Loading overlay for major operations
+        document.body.addEventListener('htmx:beforeRequest', function(evt) {
+            const target = evt.detail.elt;
+            const url = target.getAttribute('hx-post') || target.getAttribute('hx-get') || target.getAttribute('href');
+
+            // Show overlay for feedback generation/refinement
+            if (url && (url.includes('/feedback/generate') || url.includes('/feedback/refine') || url.includes('/feedback'))) {
+                const overlay = document.getElementById('loading-overlay');
+                const text = document.getElementById('loading-text');
+
+                if (url.includes('/generate')) {
+                    text.textContent = 'Generating feedback...';
+                } else if (url.includes('/refine')) {
+                    text.textContent = 'Refining feedback...';
+                } else if (url.includes('/feedback') && target.tagName === 'A') {
+                    text.textContent = 'Generating feedback...';
+                } else {
+                    text.textContent = 'Loading...';
+                }
+
+                overlay.classList.remove('hidden');
+            }
+        });
+
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            // Hide overlay after any request completes
+            const overlay = document.getElementById('loading-overlay');
+            overlay.classList.add('hidden');
         });
 
         // Mobile menu toggle

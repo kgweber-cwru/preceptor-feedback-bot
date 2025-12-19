@@ -123,43 +123,53 @@
 
     {% else %}
     <!-- No Feedback Yet - Show Chat Interface -->
-    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-5 md:p-6 mb-4 sm:mb-6">
-        <div id="message-list" class="space-y-3 sm:space-y-4 mb-4 sm:mb-6 max-h-[400px] sm:max-h-[500px] overflow-y-auto">
+    <!-- Message list container with padding for sticky input on mobile -->
+    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-5 md:p-6 mb-20 sm:mb-6 pb-4 sm:pb-6">
+        <div id="message-list" class="space-y-3 sm:space-y-4 mb-4 sm:mb-6 max-h-[calc(100vh-400px)] sm:max-h-[500px] overflow-y-auto">
             {% for message in conversation.messages %}
                 {% if message.role != 'system' and message.role != 'SYSTEM' %}
                     {% include 'components/message.html' %}
                 {% endif %}
             {% endfor %}
         </div>
+    </div>
 
-        <!-- Chat Input Form (only if not concluded) -->
+        <!-- Chat Input Form (sticky on mobile, static on desktop) -->
         {% if not should_conclude and conversation.status == 'active' %}
-        <div id="chat-input-container">
+        <div id="chat-input-container" class="fixed sm:static bottom-0 left-0 right-0 bg-white border-t sm:border-0 border-gray-200 p-4 shadow-lg sm:shadow-none z-20 sm:mt-0 -mt-20">
             <form
                 hx-post="/conversations/{{ conversation.conversation_id }}/messages"
                 hx-ext="json-enc"
                 hx-target="#message-list"
                 hx-swap="beforeend"
                 hx-on::after-request="this.reset(); this.querySelector('input').focus()"
-                class="flex gap-2 sm:gap-3">
+                class="flex gap-2 sm:gap-3 max-w-4xl mx-auto">
 
                 <input
                     type="text"
                     name="content"
-                    placeholder="Type your response..."
+                    placeholder="Type your message..."
                     required
                     autocomplete="off"
+                    inputmode="text"
+                    autocapitalize="sentences"
                     class="flex-1 px-3 py-3 sm:px-4 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
 
                 <button
                     type="submit"
-                    class="px-4 py-3 sm:px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base">
-                    Send
+                    class="px-4 py-3 sm:px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-sm sm:text-base min-h-[48px]">
+                    <span class="hidden sm:inline">Send</span>
+                    <span class="sm:hidden">
+                        <!-- Paper plane icon for mobile -->
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                    </span>
                 </button>
             </form>
 
-            <p id="turn-counter-footer" class="text-xs text-gray-500 mt-2 text-center sm:text-left">
+            <p id="turn-counter-footer" class="text-xs text-gray-500 mt-2 text-center sm:text-left max-w-4xl mx-auto">
                 {{ conversation.metadata.total_turns }} turns used
             </p>
         </div>
