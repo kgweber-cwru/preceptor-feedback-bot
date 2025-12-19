@@ -185,10 +185,6 @@
                     </span>
                 </button>
             </form>
-
-            <p id="turn-counter-footer" class="text-xs text-gray-500 mt-2 text-center sm:text-left max-w-4xl mx-auto">
-                {{ conversation.metadata.total_turns }} turns used
-            </p>
         </div>
         {% endif %}
 
@@ -257,7 +253,7 @@
             // Update footer counter
             const footerCounter = document.getElementById('turn-counter-footer');
             if (footerCounter) {
-                footerCounter.textContent = {{ conversation.metadata.total_turns }} + ' turns used';
+                footerCounter.textContent = evt.detail.count + ' turns used';
             }
 
             console.log('Turn counters updated to:', evt.detail.count);
