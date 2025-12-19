@@ -36,13 +36,15 @@ async def login(request: Request):
     response = RedirectResponse(url=oauth_url, status_code=302)
 
     # Store code_verifier and state in secure cookies (temporary, httpOnly)
+    # NOTE: samesite="none" required for OAuth redirect flow to work in Safari
+    # (Google OAuth redirects back to app = cross-site context)
     response.set_cookie(
         key="oauth_code_verifier",
         value=code_verifier,
         max_age=600,  # 10 minutes
         httponly=True,
-        secure=not settings.DEBUG,
-        samesite="lax",
+        secure=True,  # Required when samesite="none"
+        samesite="none",
         path="/",  # Ensure cookie is sent to all paths
     )
 
@@ -51,8 +53,8 @@ async def login(request: Request):
         value=state,
         max_age=600,  # 10 minutes
         httponly=True,
-        secure=not settings.DEBUG,
-        samesite="lax",
+        secure=True,  # Required when samesite="none"
+        samesite="none",
         path="/",  # Ensure cookie is sent to all paths
     )
 
