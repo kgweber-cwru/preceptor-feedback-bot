@@ -316,10 +316,10 @@
 ## Phase 7: Optional Enhancements (Future Work)
 
 ### Survey Feature (from original app)
-- [ ] Create survey template
-- [ ] Add survey endpoints
-- [ ] Store survey responses in Firestore
-- [ ] Show survey after "Finish & Save"
+- [x] Create survey template
+- [x] Add survey endpoints
+- [x] Store survey responses in Firestore
+- [x] Show survey after "Finish & Save"
 
 ### Advanced Features
 - [ ] Bulk export of feedback (CSV/Excel)

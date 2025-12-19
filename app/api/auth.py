@@ -10,11 +10,13 @@ from fastapi.templating import Jinja2Templates
 from app.config import settings
 from app.services.auth_service import AuthService
 from app.services.firestore_service import FirestoreService
+from app.services.oauth_session_store import get_oauth_store
 from app.models.user import UserCreate
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 auth_service = AuthService()
+oauth_store = get_oauth_store()
 
 
 @router.get("/login")
@@ -22,6 +24,9 @@ async def login(request: Request):
     """
     Initiate OAuth login flow.
     Generates PKCE parameters and redirects to Google OAuth.
+
+    NOTE: Uses server-side session storage instead of cookies to work around
+    Safari's Intelligent Tracking Prevention blocking samesite=none cookies.
     """
     # Generate PKCE pair
     code_verifier, code_challenge = auth_service.generate_pkce_pair()
@@ -29,41 +34,20 @@ async def login(request: Request):
     # Generate CSRF state token
     state = auth_service.generate_state_token()
 
+    # Store state and code_verifier server-side (Safari blocks cookies)
+    session_id = oauth_store.create_session(state, code_verifier)
+
     # Build OAuth URL
     oauth_url = auth_service.build_oauth_url(code_challenge, state)
 
-    # Create response with redirect
-    response = RedirectResponse(url=oauth_url, status_code=302)
-
-    # Store code_verifier and state in secure cookies (temporary, httpOnly)
-    # NOTE: samesite="none" required for OAuth redirect flow to work in Safari
-    # (Google OAuth redirects back to app = cross-site context)
-    response.set_cookie(
-        key="oauth_code_verifier",
-        value=code_verifier,
-        max_age=600,  # 10 minutes
-        httponly=True,
-        secure=True,  # Required when samesite="none"
-        samesite="none",
-        path="/",  # Ensure cookie is sent to all paths
-    )
-
-    response.set_cookie(
-        key="oauth_state",
-        value=state,
-        max_age=600,  # 10 minutes
-        httponly=True,
-        secure=True,  # Required when samesite="none"
-        samesite="none",
-        path="/",  # Ensure cookie is sent to all paths
-    )
-
     # Diagnostic logging
     print(f"[OAuth Debug] Login initiated")
-    print(f"[OAuth Debug] Setting oauth_state cookie: {state[:20]}...")
-    print(f"[OAuth Debug] Cookie attributes: secure=True, samesite=none, httponly=True, path=/")
+    print(f"[OAuth Debug] Created server-side session: {session_id[:20]}...")
+    print(f"[OAuth Debug] State token: {state[:20]}...")
     print(f"[OAuth Debug] Redirecting to: {oauth_url[:100]}...")
 
+    # No cookies needed - state stored server-side
+    response = RedirectResponse(url=oauth_url, status_code=302)
     return response
 
 
@@ -77,6 +61,9 @@ async def oauth_callback(
     """
     Handle OAuth callback from Google.
     Exchanges authorization code for tokens, creates/updates user, and issues JWT.
+
+    NOTE: Retrieves state and code_verifier from server-side session storage
+    instead of cookies (Safari compatibility).
     """
     # Check for OAuth error
     if error:
@@ -85,24 +72,35 @@ async def oauth_callback(
             status_code=400,
         )
 
-    # Validate state (CSRF protection)
-    stored_state = request.cookies.get("oauth_state")
-
     # Diagnostic logging
     print(f"[OAuth Debug] Callback received")
     print(f"[OAuth Debug] State from URL: {state[:20] if state else 'None'}...")
-    print(f"[OAuth Debug] Stored state cookie: {stored_state[:20] if stored_state else 'None'}...")
-    print(f"[OAuth Debug] All cookies: {list(request.cookies.keys())}")
     print(f"[OAuth Debug] User-Agent: {request.headers.get('user-agent', 'Unknown')}")
 
-    if not state or not stored_state or state != stored_state:
-        print(f"[OAuth Debug] State validation FAILED - state={bool(state)}, stored={bool(stored_state)}, match={state == stored_state if state and stored_state else False}")
+    if not state:
+        print(f"[OAuth Debug] No state parameter in callback")
+        raise HTTPException(status_code=400, detail="Missing state parameter")
+
+    # Retrieve session from server-side store using state
+    session = oauth_store.get_session(state)
+
+    if not session:
+        print(f"[OAuth Debug] No session found for state (expired or invalid)")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired session. Please try logging in again."
+        )
+
+    print(f"[OAuth Debug] Session found - validating state match")
+
+    # Validate state matches (CSRF protection)
+    if state != session.state:
+        print(f"[OAuth Debug] State mismatch!")
         raise HTTPException(status_code=400, detail="Invalid state parameter")
 
-    # Get code_verifier from cookie
-    code_verifier = request.cookies.get("oauth_code_verifier")
-    if not code_verifier:
-        raise HTTPException(status_code=400, detail="Missing code verifier")
+    # Get code_verifier from session
+    code_verifier = session.code_verifier
+    print(f"[OAuth Debug] Retrieved code_verifier from session")
 
     if not code:
         raise HTTPException(status_code=400, detail="Missing authorization code")
@@ -146,10 +144,16 @@ async def oauth_callback(
             domain=user.domain,
         )
 
+        # Clean up server-side OAuth session
+        oauth_store.delete_session(state)
+        print(f"[OAuth Debug] Session cleaned up")
+
         # Redirect to dashboard with JWT cookie
         response = RedirectResponse(url="/dashboard", status_code=302)
 
         # Set JWT cookie (httpOnly, secure)
+        # NOTE: Session cookie uses samesite="lax" which works fine for same-site requests
+        # Only the temporary OAuth cookies needed samesite="none" (now server-side)
         response.set_cookie(
             key=settings.SESSION_COOKIE_NAME,
             value=jwt_token,
@@ -160,10 +164,7 @@ async def oauth_callback(
             path="/",
         )
 
-        # Clear temporary OAuth cookies
-        response.delete_cookie("oauth_code_verifier", path="/")
-        response.delete_cookie("oauth_state", path="/")
-
+        print(f"[OAuth Debug] Login successful! Redirecting to dashboard")
         return response
 
     except ValueError as e:

@@ -25,10 +25,10 @@ All feedback is organized according to [CWRU School of Medicine's core competenc
 │  FastAPI + HTMX UI (app/)                                   │
 │  ├─ Authentication (Google OAuth 2.0 + JWT)                 │
 │  ├─ API Routes (conversations, feedback, user)              │
-│  └─ Services                                                 │
-│      ├─ VertexAIClient → Google Vertex AI (Gemini)         │
+│  └─ Services                                                │
+│      ├─ VertexAIClient → Google Vertex AI (Gemini)          │
 │      ├─ ConversationService                                 │
-│      └─ FirestoreService → Google Cloud Firestore          │
+│      └─ FirestoreService → Google Cloud Firestore           │
 └─────────────────────────────────────────────────────────────┘
          │
          ├─> Firestore: Conversations, Feedback, Users
