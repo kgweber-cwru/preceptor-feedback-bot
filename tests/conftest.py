@@ -23,6 +23,7 @@ os.environ["OAUTH_CLIENT_ID"] = "test-client-id"
 os.environ["OAUTH_CLIENT_SECRET"] = "test-client-secret"
 os.environ["OAUTH_REDIRECT_URI"] = "http://localhost:8080/auth/callback"
 os.environ["OAUTH_DOMAIN_RESTRICTION"] = "false"
+os.environ["OAUTH_ALLOWED_DOMAINS"] = "case.edu"
 
 from app.main import app
 from app.dependencies import get_firestore, get_current_user
@@ -385,3 +386,44 @@ def mock_jwt_token():
 def auth_headers(mock_jwt_token):
     """Provides authenticated request headers with JWT cookie."""
     return {"Cookie": f"access_token={mock_jwt_token}"}
+
+
+@pytest.fixture
+def override_settings():
+    """
+    Context manager for temporarily overriding settings via environment variables.
+
+    Usage in tests:
+        def test_something(override_settings):
+            with override_settings(OAUTH_DOMAIN_RESTRICTION="true", OAUTH_ALLOWED_DOMAINS="case.edu"):
+                # Test code here
+    """
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _override(**env_vars):
+        # Store original values
+        original_values = {}
+        for key, value in env_vars.items():
+            original_values[key] = os.environ.get(key)
+            os.environ[key] = str(value)
+
+        # Reload settings to pick up new env vars
+        from importlib import reload
+        from app import config
+        reload(config)
+
+        try:
+            yield
+        finally:
+            # Restore original values
+            for key, original_value in original_values.items():
+                if original_value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = original_value
+
+            # Reload settings again to restore
+            reload(config)
+
+    return _override

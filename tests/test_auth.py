@@ -40,8 +40,8 @@ class TestOAuthLogin:
         response = await unauthenticated_client.get("/auth/login", follow_redirects=False)
 
         cookies = response.cookies
-        assert "code_verifier" in cookies
-        assert cookies["code_verifier"] != ""
+        assert "oauth_code_verifier" in cookies
+        assert cookies["oauth_code_verifier"] != ""
 
 
 class TestOAuthCallback:
@@ -76,7 +76,7 @@ class TestOAuthCallback:
         # Set cookies as if we came from /auth/login
         response = await unauthenticated_client.get(
             "/auth/callback?code=mock_code&state=mock_state",
-            cookies={"oauth_state": "mock_state", "code_verifier": "mock_verifier"},
+            cookies={"oauth_state": "mock_state", "oauth_code_verifier": "mock_verifier"},
             follow_redirects=False,
         )
 
@@ -172,12 +172,16 @@ class TestDomainRestriction:
     @pytest.mark.asyncio
     @patch("app.api.auth.httpx.AsyncClient.post")
     @patch("app.api.auth.httpx.AsyncClient.get")
-    @patch("app.config.settings.OAUTH_DOMAIN_RESTRICTION", True)
-    @patch("app.config.settings.OAUTH_ALLOWED_DOMAINS", ["case.edu"])
     async def test_allowed_domain_grants_access(
-        self, mock_get, mock_post, unauthenticated_client
+        self, mock_get, mock_post, unauthenticated_client, monkeypatch
     ):
         """Test that users from allowed domain can log in."""
+        # Enable domain restriction via monkeypatch
+        from app.config import settings
+        monkeypatch.setattr(settings, "OAUTH_DOMAIN_RESTRICTION", True)
+        # Patch the property to return the list directly
+        monkeypatch.setattr(type(settings), "OAUTH_ALLOWED_DOMAINS", property(lambda self: ["case.edu"]))
+
         # Mock Google token exchange
         mock_post.return_value = Mock(
             status_code=200,
@@ -199,7 +203,7 @@ class TestDomainRestriction:
 
         response = await unauthenticated_client.get(
             "/auth/callback?code=mock_code&state=mock_state",
-            cookies={"oauth_state": "mock_state", "code_verifier": "mock_verifier"},
+            cookies={"oauth_state": "mock_state", "oauth_code_verifier": "mock_verifier"},
             follow_redirects=False,
         )
 
@@ -209,12 +213,16 @@ class TestDomainRestriction:
     @pytest.mark.asyncio
     @patch("app.api.auth.httpx.AsyncClient.post")
     @patch("app.api.auth.httpx.AsyncClient.get")
-    @patch("app.config.settings.OAUTH_DOMAIN_RESTRICTION", True)
-    @patch("app.config.settings.OAUTH_ALLOWED_DOMAINS", ["case.edu"])
     async def test_disallowed_domain_denies_access(
-        self, mock_get, mock_post, unauthenticated_client
+        self, mock_get, mock_post, unauthenticated_client, monkeypatch
     ):
         """Test that users from disallowed domain are denied."""
+        # Enable domain restriction via monkeypatch
+        from app.config import settings
+        monkeypatch.setattr(settings, "OAUTH_DOMAIN_RESTRICTION", True)
+        # Patch the property to return the list directly
+        monkeypatch.setattr(type(settings), "OAUTH_ALLOWED_DOMAINS", property(lambda self: ["case.edu"]))
+
         # Mock Google token exchange
         mock_post.return_value = Mock(
             status_code=200,
@@ -236,7 +244,7 @@ class TestDomainRestriction:
 
         response = await unauthenticated_client.get(
             "/auth/callback?code=mock_code&state=mock_state",
-            cookies={"oauth_state": "mock_state", "code_verifier": "mock_verifier"},
+            cookies={"oauth_state": "mock_state", "oauth_code_verifier": "mock_verifier"},
             follow_redirects=False,
         )
 

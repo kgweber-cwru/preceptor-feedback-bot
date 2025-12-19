@@ -128,6 +128,31 @@ Test configuration is in `pytest.ini`:
 5. Test both success and failure cases
 6. Test authorization (users can't access other users' data)
 
+### Overriding Settings in Tests
+
+Settings defined as `@property` in the Settings class cannot be patched directly. Use `monkeypatch` instead:
+
+```python
+@pytest.mark.asyncio
+async def test_with_custom_settings(client, monkeypatch):
+    """Example of overriding settings."""
+    from app.config import settings
+
+    # For simple attributes
+    monkeypatch.setattr(settings, "MAX_TURNS", 5)
+
+    # For properties (like OAUTH_ALLOWED_DOMAINS)
+    monkeypatch.setattr(
+        type(settings),
+        "OAUTH_ALLOWED_DOMAINS",
+        property(lambda self: ["case.edu", "uhhospitals.org"])
+    )
+
+    # Now test with custom settings...
+```
+
+**Never use** `@patch("app.config.settings.PROPERTY_NAME")` for properties - it will raise `AttributeError: property has no setter`.
+
 ## Known Issues
 
 - Some Vertex AI mocking may need adjustment for complex scenarios

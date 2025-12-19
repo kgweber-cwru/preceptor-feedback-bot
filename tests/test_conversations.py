@@ -297,11 +297,14 @@ class TestConversationFlow:
 
     @pytest.mark.asyncio
     @patch("app.services.conversation_service.VertexAIClient")
-    @patch("app.config.settings.MAX_TURNS", 3)
     async def test_max_turns_limit(
-        self, mock_vertex_class, client, mock_firestore, test_user
+        self, mock_vertex_class, client, mock_firestore, test_user, monkeypatch
     ):
         """Test that conversation respects MAX_TURNS limit."""
+        # Set MAX_TURNS to 3 for this test
+        from app.config import settings
+        monkeypatch.setattr(settings, "MAX_TURNS", 3)
+
         mock_vertex = AsyncMock()
         mock_vertex.send_message.return_value = {
             "content": "Response",
@@ -318,7 +321,7 @@ class TestConversationFlow:
         # Send messages up to limit
         for i in range(3):
             response = await client.post(
-                f"/conversations/{conv_id}/messages",
+                f"/conversations/{conv.conversation_id}/messages",
                 json={"content": f"Message {i + 1}"},
             )
             assert response.status_code == 200
