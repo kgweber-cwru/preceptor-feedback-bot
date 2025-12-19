@@ -3,25 +3,25 @@
 **Session Date:** 2025-12-19
 **Current Status:** Phase 5 (Mobile UI & Polish) implementation complete, pending final deployment and testing
 **Current Branch:** `fastapi-migration`
-**Latest Commit:** `0884875` "Fix JavaScript syntax error in turn counter update"
+**Latest Commits:**
+- `0884875` "Fix JavaScript syntax error in turn counter update"
+- `4400254` "Fix OAuth session errors with multi-instance Cloud Run"
+- `ec63675` "Add comprehensive Phase 5 documentation and next session guide"
+
+**Recent Fixes:**
+- ✅ OAuth session error on first login (now uses Firestore instead of in-memory storage)
 
 ---
 
 ## Immediate Next Steps (Start Here!)
 
-### 1. Deploy JavaScript Syntax Fix
-**Status:** Code committed but not deployed
-**Action Required:**
-```bash
-./deploy.sh
-```
+### 1. Deploy Latest Changes ✅ COMPLETED
+**Status:** Deployed to revision 00035
+**Deployed Fixes:**
+- ✅ JavaScript syntax error (line 256 in conversation.html)
+- ✅ OAuth session error with multi-instance Cloud Run (now uses Firestore)
 
-**Expected Result:** Cloud Run revision 00033
-
-**What Was Fixed:**
-- JavaScript syntax error at line 256 in `app/templates/conversation.html`
-- Changed `{{ conversation.metadata.total_turns }}` to `evt.detail.count`
-- Prevents template syntax from breaking JavaScript execution
+**Action:** No deployment needed - latest code is live!
 
 ---
 
@@ -115,7 +115,9 @@
 - **Revision 00030:** Message bubble width fix
 - **Revision 00031:** Generate Feedback placement fix
 - **Revision 00032:** Footer/header space optimization
-- **Revision 00033 (pending):** JavaScript syntax fix
+- **Revision 00033:** JavaScript syntax fix
+- **Revision 00034:** (skipped in numbering)
+- **Revision 00035:** OAuth session fix (Firestore-based storage) ← CURRENT
 
 ---
 
