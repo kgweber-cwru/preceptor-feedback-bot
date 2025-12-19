@@ -15,10 +15,10 @@
     </div>
 
     <!-- Header -->
-    <div class="bg-white rounded-lg shadow-sm p-4 sm:p-5 md:p-6 mb-4 sm:mb-6">
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0">
+    <div class="bg-white rounded-lg shadow-sm p-3 sm:p-5 md:p-6 mb-3 sm:mb-6">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0">
             <div class="flex-1 min-w-0">
-                <h1 class="text-xl sm:text-2xl font-bold text-gray-900 break-words">
+                <h1 class="text-lg sm:text-2xl font-bold text-gray-900 break-words">
                     {% if feedback %}
                         Generated Feedback
                     {% else %}
@@ -27,7 +27,8 @@
                 </h1>
                 <p class="text-sm sm:text-base text-gray-600 mt-1 break-words">Student: <span class="font-medium">{{ conversation.student_name }}</span></p>
             </div>
-            <div class="text-left sm:text-right flex-shrink-0">
+            <!-- Metadata: Hidden on mobile, shown on desktop -->
+            <div class="hidden sm:block text-right flex-shrink-0">
                 {% if feedback %}
                     <p class="text-xs sm:text-sm text-gray-500">Version {{ feedback.current_version }}</p>
                     <p class="text-xs text-gray-400 mt-1">{{ feedback.generated_at.strftime('%Y-%m-%d %H:%M') }}</p>
@@ -213,8 +214,8 @@
     </div>
     {% endif %}
 
-    <!-- Back to Dashboard -->
-    <div class="text-center">
+    <!-- Back to Dashboard (hidden on mobile since nav has it) -->
+    <div class="hidden sm:block text-center mt-6">
         <a href="/dashboard" class="text-blue-600 hover:text-blue-700">
             ← Back to Dashboard
         </a>

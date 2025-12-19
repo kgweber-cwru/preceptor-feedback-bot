@@ -162,10 +162,10 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-white border-t border-gray-200 mt-auto">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div class="text-center text-sm text-gray-500">
+    <!-- Footer (hidden on mobile, compact on desktop) -->
+    <footer class="hidden sm:block bg-white border-t border-gray-200 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+            <div class="text-center text-xs sm:text-sm text-gray-500">
                 {{ app_name }} v{{ version }} | Case Western Reserve University School of Medicine
             </div>
         </div>
