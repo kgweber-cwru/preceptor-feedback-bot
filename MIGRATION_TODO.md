@@ -261,11 +261,13 @@
 ## Phase 6: Testing, Documentation & Deployment (Week 6)
 
 ### Integration Testing
-- [ ] Write integration tests for OAuth flow
-- [ ] Write tests for conversation creation and messaging
-- [ ] Write tests for feedback generation and refinement
-- [ ] Write tests for dashboard search and filtering
-- [ ] Write tests for authorization (users can't access others' data)
+- [x] Write integration tests for OAuth flow
+- [x] Write tests for conversation creation and messaging
+- [x] Write tests for feedback generation and refinement
+- [x] Write tests for dashboard search and filtering
+- [x] Write tests for authorization (users can't access others' data)
+- [x] Write tests for survey feature
+- [x] Fix Safari OAuth issues (server-side session storage)
 
 ### Load Testing
 - [ ] Set up load testing with Locust or k6
