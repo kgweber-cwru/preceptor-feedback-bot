@@ -65,6 +65,10 @@ from app.utils.time_formatting import timeago
 templates.env.filters["timeago"] = timeago
 templates.env.filters["markdown"] = markdown_to_html
 
+# Add global template variables (available to all templates)
+templates.env.globals["app_name"] = settings.APP_NAME
+templates.env.globals["version"] = settings.APP_VERSION
+
 
 # Include API routers
 app.include_router(auth.router, prefix="/auth", tags=["authentication"])
@@ -92,8 +96,6 @@ async def root(request: Request):
         "login.html",
         {
             "request": request,
-            "app_name": settings.APP_NAME,
-            "version": settings.APP_VERSION,
         },
     )
 
