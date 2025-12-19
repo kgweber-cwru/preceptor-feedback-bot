@@ -7,7 +7,7 @@ multiple Cloud Run instances (sessions must be shared across instances).
 """
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from dataclasses import dataclass
 from google.cloud import firestore
@@ -86,9 +86,9 @@ class OAuthSessionStore:
         data = doc.to_dict()
         created_at = data.get("created_at")
 
-        # Check if expired
+        # Check if expired (use timezone-aware datetime to match Firestore timestamps)
         if created_at:
-            age = datetime.utcnow() - created_at
+            age = datetime.now(timezone.utc) - created_at
             if age.total_seconds() > self._ttl_seconds:
                 # Remove expired session
                 print(f"[OAuth Session] Session expired, deleting: {state[:20]}...")
@@ -99,7 +99,7 @@ class OAuthSessionStore:
         return OAuthSession(
             state=data.get("state"),
             code_verifier=data.get("code_verifier"),
-            created_at=created_at or datetime.utcnow(),
+            created_at=created_at or datetime.now(timezone.utc),
         )
 
     def delete_session(self, state: str):
@@ -117,7 +117,7 @@ class OAuthSessionStore:
         Remove expired sessions from Firestore to prevent storage bloat.
         Should be called periodically (e.g., via Cloud Scheduler).
         """
-        cutoff = datetime.utcnow() - timedelta(seconds=self._ttl_seconds)
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=self._ttl_seconds)
 
         # Query expired sessions
         expired_query = self._collection.where("created_at", "<", cutoff).stream()
