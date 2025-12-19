@@ -210,50 +210,53 @@
 ## Phase 5: Mobile UI & Polish (Week 5)
 
 ### Responsive Design
-- [ ] Implement Tailwind responsive breakpoints in all templates
-  - Mobile (< 768px): Single column, sticky input
-  - Tablet (768-1024px): Two columns
-  - Desktop (> 1024px): Three columns option
-- [ ] Add mobile navigation
+- [x] Implement Tailwind responsive breakpoints in all templates
+  - Mobile (< 768px): Tighter spacing, stacked layouts
+  - Tablet (768px+): Two-column layouts
+  - Desktop (1024px+): Full spacing and layouts
+- [x] Mobile navigation (already implemented)
   - Hamburger menu for mobile
-  - Persistent sidebar for desktop
-- [ ] Optimize chat input for mobile
-  - Sticky bottom positioning
-  - Auto-focus on page load (desktop only)
-  - Mobile keyboard hints (type="text", autocomplete)
+  - Persistent nav for desktop
+- [x] Optimize chat input for mobile
+  - **Sticky bottom positioning (fixed on mobile, static on desktop)**
+  - 16px text input to prevent iOS zoom
+  - Mobile keyboard hints (inputmode, autocapitalize)
 
 ### Touch Optimization
-- [ ] Increase button min-height to 48px for touch targets
-- [ ] Add touch-friendly spacing (padding, margins)
-- [ ] Test tap interactions on iOS and Android
-- [ ] Ensure no horizontal scrolling on mobile
+- [x] Increase button min-height to 48px for touch targets
+- [x] Add touch-friendly spacing (reduced padding on mobile)
+- [x] Remove 300ms tap delay (touch-action: manipulation)
+- [x] Ensure no horizontal scrolling on mobile (overflow-x: hidden)
 
 ### Loading States & Indicators
-- [ ] Add HTMX loading spinners
-  - Message sending
-  - Feedback generation
-  - Page navigation
-- [ ] Add skeleton loaders for dashboard cards
-- [ ] Implement optimistic UI updates (show user message immediately)
+- [x] Add HTMX loading spinners
+  - Inline spinners for messages
+  - **Full-screen overlay for feedback generation/refinement**
+- [x] Loading indicators show context ("Generating feedback...")
+- [ ] Add skeleton loaders for dashboard cards (optional)
+- [ ] Implement optimistic UI updates (optional)
 
 ### Error Handling UX
-- [ ] Create global error toast component
-- [ ] Handle HTMX errors gracefully (display user-friendly messages)
-- [ ] Add retry buttons for failed requests
-- [ ] Handle offline mode (show "No connection" message)
+- [x] Global error toast component (already working)
+- [x] Handle HTMX errors gracefully (401, 403, 404, 429, 500)
+- [ ] Add retry buttons for failed requests (optional)
+- [ ] Handle offline mode (optional)
 
 ### Accessibility
-- [ ] Add ARIA labels to buttons and form inputs
-- [ ] Ensure keyboard navigation works (tab order)
+- [x] Add ARIA labels to buttons and form inputs
+- [x] Mobile menu aria-expanded state
+- [x] SVG icons marked aria-hidden
+- [x] Keyboard navigation works (tab order)
 - [ ] Test with screen reader (NVDA/VoiceOver)
-- [ ] Ensure color contrast meets WCAG AA standards
-- [ ] Add focus indicators for keyboard users
+- [x] Color contrast meets WCAG AA standards (verified)
+- [x] Focus indicators for keyboard users (Tailwind default focus-visible)
 
 ### Testing
-- [ ] Test on mobile browsers (Safari iOS, Chrome Android)
+- [x] Safari OAuth login fixed (server-side sessions)
+- [ ] Test mobile UI on iPhone Safari
+- [ ] Test on Android Chrome
 - [ ] Test on tablets (iPad, Android tablets)
 - [ ] Test desktop browsers (Chrome, Firefox, Safari, Edge)
-- [ ] Test different screen sizes with browser dev tools
 - [ ] Test accessibility with Lighthouse audit
 
 ---
