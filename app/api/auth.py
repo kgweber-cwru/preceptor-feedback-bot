@@ -58,6 +58,12 @@ async def login(request: Request):
         path="/",  # Ensure cookie is sent to all paths
     )
 
+    # Diagnostic logging
+    print(f"[OAuth Debug] Login initiated")
+    print(f"[OAuth Debug] Setting oauth_state cookie: {state[:20]}...")
+    print(f"[OAuth Debug] Cookie attributes: secure=True, samesite=none, httponly=True, path=/")
+    print(f"[OAuth Debug] Redirecting to: {oauth_url[:100]}...")
+
     return response
 
 
@@ -81,7 +87,16 @@ async def oauth_callback(
 
     # Validate state (CSRF protection)
     stored_state = request.cookies.get("oauth_state")
+
+    # Diagnostic logging
+    print(f"[OAuth Debug] Callback received")
+    print(f"[OAuth Debug] State from URL: {state[:20] if state else 'None'}...")
+    print(f"[OAuth Debug] Stored state cookie: {stored_state[:20] if stored_state else 'None'}...")
+    print(f"[OAuth Debug] All cookies: {list(request.cookies.keys())}")
+    print(f"[OAuth Debug] User-Agent: {request.headers.get('user-agent', 'Unknown')}")
+
     if not state or not stored_state or state != stored_state:
+        print(f"[OAuth Debug] State validation FAILED - state={bool(state)}, stored={bool(stored_state)}, match={state == stored_state if state and stored_state else False}")
         raise HTTPException(status_code=400, detail="Invalid state parameter")
 
     # Get code_verifier from cookie
