@@ -111,8 +111,22 @@ class MockFirestoreService:
 
     async def update_conversation_messages(self, conversation_id: str, messages: list, total_turns: int):
         if conversation_id in self.conversations:
-            self.conversations[conversation_id].messages = messages
-            self.conversations[conversation_id].metadata["total_turns"] = total_turns
+            from app.models.conversation import Message as MsgModel
+            import uuid as _uuid
+            coerced = []
+            for m in messages:
+                if isinstance(m, MsgModel):
+                    coerced.append(m)
+                else:
+                    # Fill in required fields missing from minimal test dicts
+                    d = dict(m)
+                    if "message_id" not in d:
+                        d["message_id"] = f"msg_{_uuid.uuid4().hex[:8]}"
+                    if "turn" not in d:
+                        d["turn"] = 0
+                    coerced.append(MsgModel(**d))
+            self.conversations[conversation_id].messages = coerced
+            self.conversations[conversation_id].metadata.total_turns = total_turns
             self.conversations[conversation_id].updated_at = datetime.utcnow()
 
     async def update_conversation_status(self, conversation_id: str, status):
@@ -130,13 +144,13 @@ class MockFirestoreService:
 
         summaries = []
         for conv in paginated:
-            last_msg = conv.messages[-1]["content"] if conv.messages else ""
+            last_msg = conv.messages[-1].content if conv.messages else ""
             has_feedback = conv.conversation_id in self.feedback
             summaries.append(ConversationSummary(
                 conversation_id=conv.conversation_id,
                 student_name=conv.student_name,
                 status=conv.status,
-                total_turns=conv.metadata["total_turns"],
+                total_turns=conv.metadata.total_turns,
                 last_message_preview=last_msg[:100] if last_msg else None,
                 created_at=conv.created_at,
                 updated_at=conv.updated_at,
@@ -157,13 +171,13 @@ class MockFirestoreService:
 
         summaries = []
         for conv in paginated:
-            last_msg = conv.messages[-1]["content"] if conv.messages else ""
+            last_msg = conv.messages[-1].content if conv.messages else ""
             has_feedback = conv.conversation_id in self.feedback
             summaries.append(ConversationSummary(
                 conversation_id=conv.conversation_id,
                 student_name=conv.student_name,
                 status=conv.status,
-                total_turns=conv.metadata["total_turns"],
+                total_turns=conv.metadata.total_turns,
                 last_message_preview=last_msg[:100] if last_msg else None,
                 created_at=conv.created_at,
                 updated_at=conv.updated_at,
@@ -305,7 +319,7 @@ def override_current_user(test_user):
 
 
 @pytest.fixture
-async def client(override_firestore, override_current_user, mock_vertex_client):
+async def client(override_firestore, override_current_user, mock_vertex_client, mock_jwt_token):
     """
     Provides an async HTTP client for testing the FastAPI app.
     Overrides dependencies with test mocks.
@@ -314,9 +328,14 @@ async def client(override_firestore, override_current_user, mock_vertex_client):
     app.dependency_overrides[get_current_user] = override_current_user
 
     # Mock VertexAIClient globally
+    # Include JWT cookie so routes that check request.state.authenticated directly also work
     with patch("app.services.conversation_service.VertexAIClient", return_value=mock_vertex_client):
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://test",
+            cookies={"access_token": mock_jwt_token},
+        ) as ac:
             yield ac
 
     # Cleanup
@@ -359,12 +378,23 @@ def mock_vertex_client():
 
     mock.set_student_name = Mock(side_effect=mock_set_student_name)
     mock.start_conversation = Mock(side_effect=mock_start_conversation)
-    mock.send_message = AsyncMock(return_value={
-        "content": "Thank you for sharing that. Tell me more about the student's performance.",
-        "contains_feedback": False,
-    })
-    mock.generate_feedback = AsyncMock(return_value="**Clerkship Director Summary**\n\nStrengths:\n- Good clinical reasoning\n\nAreas for Improvement:\n- Communication skills\n\n**Student-Facing Narrative**\n\nYou demonstrated strong clinical reasoning...")
-    mock.refine_feedback = AsyncMock(return_value="**Clerkship Director Summary** (REFINED)\n\nStrengths:\n- Excellent clinical reasoning\n\nAreas for Improvement:\n- Communication skills\n\n**Student-Facing Narrative**\n\nYou demonstrated excellent clinical reasoning...")
+
+    # VertexAIClient methods are synchronous — use Mock, not AsyncMock.
+    # send_message also increments turn_count to mirror real client behaviour.
+    def _mock_send_message(user_message):
+        mock.turn_count += 1
+        return {
+            "role": "assistant",
+            "content": "Thank you for sharing that. Tell me more about the student's performance.",
+            "timestamp": datetime.utcnow().isoformat(),
+            "turn": mock.turn_count,
+            "response_time_ms": 100.0,
+            "contains_feedback": False,
+        }
+
+    mock.send_message = Mock(side_effect=_mock_send_message)
+    mock.generate_feedback = Mock(return_value="**Structured Summary**\n\nStrengths:\n- Good clinical reasoning\n\nAreas for Improvement:\n- Communication skills\n\n**Student-Facing Narrative**\n\nYou demonstrated strong clinical reasoning...")
+    mock.refine_feedback = Mock(return_value="**Structured Summary** (REFINED)\n\nStrengths:\n- Excellent clinical reasoning\n\nAreas for Improvement:\n- Communication skills\n\n**Student-Facing Narrative**\n\nYou demonstrated excellent clinical reasoning...")
     return mock
 
 

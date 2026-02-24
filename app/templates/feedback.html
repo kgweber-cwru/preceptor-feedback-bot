@@ -40,7 +40,7 @@
         <!-- Refinement Form -->
         <div class="mb-6">
             <label for="refinement_request" class="block text-sm font-medium text-gray-700 mb-2">
-                Request Changes
+                (Optional) Refine Feedback: If you'd like to make adjustments to the feedback, enter your refinement request below and click "Refine Feedback". The AI will update the feedback based on your input.
             </label>
             <form
                 hx-post="/conversations/{{ conversation.conversation_id }}/feedback/refine"
@@ -69,21 +69,21 @@
 
         <!-- Download and Finish Buttons -->
         <div class="flex gap-3 flex-wrap">
-            <a
-                href="/conversations/{{ conversation.conversation_id }}/feedback/download"
-                class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium inline-block">
-                📥 Download as Text File
-            </a>
-
-            <form
+                        <form
                 hx-post="/conversations/{{ conversation.conversation_id }}/finish"
                 class="inline">
                 <button
                     type="submit"
                     class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-                    ✅ Finish & Return to Dashboard
+                    ✅ Finish & Complete Survey
                 </button>
             </form>
+
+            <a
+                href="/conversations/{{ conversation.conversation_id }}/feedback/download"
+                class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium inline-block">
+                📥 Download as Text File
+            </a>
 
             <a
                 href="/conversations/{{ conversation.conversation_id }}"

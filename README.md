@@ -6,7 +6,7 @@ A conversational AI tool that helps medical school faculty provide structured, c
 
 This application guides preceptors through a brief (3-5 minute) conversation to gather observations about a student's clinical performance. It then generates two structured outputs:
 
-1. **Clerkship Director Summary** - Organized by strengths, areas for improvement, and developmental suggestions
+1. **Structured Summary** - Organized by strengths, areas for improvement, and developmental suggestions
 2. **Student-Facing Narrative** - Constructive, supportive feedback framed as opportunities for growth
 
 All feedback is organized according to [CWRU School of Medicine's core competencies](https://case.edu/medicine/curriculum/curriculum-overview/competencies-and-education-program-objectives):
@@ -237,7 +237,7 @@ Sensitive variables are managed via **Secret Manager**:
 - **Firestore persistence** - All conversations saved to database
 
 ### Feedback Generation
-- **Structured output** - Clerkship director summary + student narrative
+- **Structured output** - Structured summary + student narrative
 - **Refinement support** - Users can request changes to generated feedback
 - **Version history** - Firestore stores all refinement iterations
 - **Download as text** - Export final feedback

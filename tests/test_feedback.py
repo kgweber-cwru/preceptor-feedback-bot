@@ -21,9 +21,9 @@ class TestFeedbackGeneration:
     ):
         """Test successful feedback generation."""
         # Setup mock
-        mock_vertex = AsyncMock()
+        mock_vertex = Mock()
         mock_vertex.generate_feedback.return_value = (
-            "**Clerkship Director Summary**\n\nStrengths:\n- Good clinical reasoning\n\n"
+            "**Structured Summary**\n\nStrengths:\n- Good clinical reasoning\n\n"
             "**Student-Facing Narrative**\n\nYou demonstrated good clinical reasoning."
         )
         mock_vertex_class.return_value = mock_vertex
@@ -46,7 +46,7 @@ class TestFeedbackGeneration:
         response = await client.get(f"/conversations/{conv.conversation_id}/feedback")
 
         assert response.status_code == 200
-        assert "Clerkship Director Summary" in response.text
+        assert "Structured Summary" in response.text
         assert "Student-Facing Narrative" in response.text
         assert "Test Student" in response.text
 
@@ -70,7 +70,7 @@ class TestFeedbackGeneration:
         self, mock_vertex_class, client, mock_firestore, test_user
     ):
         """Test that requesting feedback shows existing feedback if already generated."""
-        mock_vertex = AsyncMock()
+        mock_vertex = Mock()
         mock_vertex_class.return_value = mock_vertex
 
         # Create conversation
@@ -102,7 +102,7 @@ class TestFeedbackGeneration:
         self, mock_vertex_class, client, mock_firestore, test_user
     ):
         """Test that generating feedback marks conversation with has_feedback flag."""
-        mock_vertex = AsyncMock()
+        mock_vertex = Mock()
         mock_vertex.generate_feedback.return_value = "Generated feedback"
         mock_vertex_class.return_value = mock_vertex
 
@@ -132,7 +132,7 @@ class TestFeedbackRefinement:
         self, mock_vertex_class, client, mock_firestore, test_user
     ):
         """Test successful feedback refinement."""
-        mock_vertex = AsyncMock()
+        mock_vertex = Mock()
         mock_vertex.refine_feedback.return_value = "Refined feedback content with more detail"
         mock_vertex_class.return_value = mock_vertex
 
@@ -195,7 +195,7 @@ class TestFeedbackRefinement:
         self, mock_vertex_class, client, mock_firestore, test_user
     ):
         """Test multiple feedback refinements create multiple versions."""
-        mock_vertex = AsyncMock()
+        mock_vertex = Mock()
         mock_vertex.refine_feedback.side_effect = [
             "Refinement 1",
             "Refinement 2",

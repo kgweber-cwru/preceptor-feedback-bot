@@ -66,6 +66,8 @@ async def get_feedback_page(
                 },
             )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -110,6 +112,8 @@ async def refine_feedback(
 
         return HTMLResponse(content=content_html)
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -159,6 +163,8 @@ async def download_feedback(
             background=lambda: os.unlink(temp_path)  # Delete temp file after download
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -193,5 +199,7 @@ async def finish_conversation(
             headers={"HX-Redirect": f"/conversations/{conversation_id}/survey"}
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

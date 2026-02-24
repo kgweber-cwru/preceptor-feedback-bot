@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.middleware.auth_middleware import AuthMiddleware
-from app.api import auth, conversations, feedback, user, survey
+from app.api import auth, conversations, feedback, user, survey, dev
 
 
 @asynccontextmanager
@@ -64,6 +64,8 @@ app.include_router(conversations.router, prefix="/conversations", tags=["convers
 app.include_router(feedback.router, tags=["feedback"])
 app.include_router(user.router, tags=["user"])
 app.include_router(survey.router, tags=["survey"])
+if settings.DEBUG:
+    app.include_router(dev.router)
 
 
 # ===== Root Routes =====
@@ -105,6 +107,7 @@ async def dashboard(request: Request):
         {
             "request": request,
             "user": user,
+            "debug": settings.DEBUG,
         },
     )
 

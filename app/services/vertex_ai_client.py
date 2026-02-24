@@ -6,6 +6,7 @@ Migrated from utils/ for FastAPI integration.
 
 import os
 import random
+import re
 import time
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -256,12 +257,30 @@ class VertexAIClient:
         if not self.chat:
             raise ValueError("No active conversation")
 
-        prompt = """Based on our conversation, please generate both outputs:
+        prompt = """Based on our conversation, generate the two feedback outputs now.
 
-1. **Clerkship Director Summary** (structured bullets with Context, Strengths, Areas for Improvement, Suggested Focus)
-2. **Student-Facing Narrative** (constructive paragraph with context, strengths, 1-2 actionable suggestions, encouragement)
+OUTPUT MUST START WITH EXACTLY THIS LINE (no text before it):
+### Structured Summary
 
-Please format clearly with headers."""
+Then a blank line, then these bullet points in this exact format where every label AND its text are on the SAME line:
+* **Context of evaluation**: [setting and timeframe]
+* **Strengths**:
+  * **[Competency Name]**: [one or two sentences describing what the student did well in that competency]
+  * **[Competency Name]**: [one or two sentences]
+* **Areas for Improvement**: [one or two sentences]
+* **Suggested Focus for Development**: [one or two sentences]
+* **Clinical Performance**: [rating]
+
+Then a blank line, then:
+### Student-Facing Narrative
+
+Then a blank line, then the narrative paragraph(s).
+
+ABSOLUTE RULES:
+1. NEVER use definition-list syntax. FORBIDDEN: putting a label on its own line and then starting the next line with ": ". RIGHT: `* **Label**: text on same line`. WRONG: `Label\n: text on next line`.
+2. Every competency under Strengths gets its own indented sub-bullet `  * **Name**: text`.
+3. There must be a blank line immediately after each `###` heading.
+4. Do not wrap the output in a code block or add any preamble."""
 
         try:
             # Log the feedback generation request
@@ -292,7 +311,7 @@ Please format clearly with headers."""
                 }
             )
 
-            return response.text
+            return self._fix_markdown_formatting(response.text)
 
         except Exception as e:
             raise Exception(f"Error generating feedback: {str(e)}")
@@ -313,11 +332,11 @@ Please format clearly with headers."""
         try:
             # Create explicit refinement prompt
             # Direct and concise - no apologies or explanations needed
-            refinement_prompt = f"""Based on the feedback you just generated, apply this refinement and regenerate BOTH outputs:
+            refinement_prompt = f"""Apply this refinement and regenerate BOTH outputs:
 
 {refinement_request}
 
-Provide the updated Clerkship Director Summary and Student-Facing Narrative with the same formatting as before. No explanation needed - just the refined feedback."""
+Use the same exact format as the original: `### Structured Summary` and `### Student-Facing Narrative` headings, each followed by a blank line. Every bullet label and text on the same line (`* **Label**: text`). No definition-list syntax. Just the refined feedback, no explanation."""
 
             # Log the user's refinement request
             self.conversation_history.append(
@@ -349,10 +368,89 @@ Provide the updated Clerkship Director Summary and Student-Facing Narrative with
                 }
             )
 
-            return response.text
+            return self._fix_markdown_formatting(response.text)
 
         except Exception as e:
             raise Exception(f"Error refining feedback: {str(e)}")
+
+    def _fix_markdown_formatting(self, text: str) -> str:
+        """
+        Post-process LLM output to fix definition-list syntax into proper bullet format.
+
+        Converts (definition-list style):
+          Term
+          : Definition
+        into:
+          * **Term**: Definition
+
+        Items that follow a header-only bullet (e.g. "Strengths\n:") are
+        indented as sub-bullets:
+          * **Strengths**:
+            * **Competency**: text
+
+        Also ensures a blank line follows every ### heading.
+        """
+        lines = text.split("\n")
+        fixed: list[str] = []
+        # Track whether the last converted bullet was a "header-only" bullet
+        # (no inline text, just "* **Label**:") — if so, subsequent converted
+        # items become indented sub-bullets.
+        in_sub_block = False
+        i = 0
+        while i < len(lines):
+            current = lines[i]
+            next_line = lines[i + 1] if i + 1 < len(lines) else None
+            stripped = current.strip()
+
+            # Leave headings and already-formatted bullets/indented lines untouched
+            if (
+                current.startswith("#")
+                or current.startswith("*")
+                or current.startswith(" ")
+            ):
+                # A top-level bullet with content ends the sub-block
+                if current.startswith("* ") and not current.rstrip().endswith(":"):
+                    in_sub_block = False
+                fixed.append(current)
+                i += 1
+                continue
+
+            # Blank lines pass through and do NOT reset sub-block state
+            if not stripped:
+                fixed.append(current)
+                i += 1
+                continue
+
+            if next_line is not None and next_line.startswith(": ") and stripped:
+                # "Term\n: definition" — inline definition
+                definition = next_line[2:]
+                if in_sub_block:
+                    fixed.append(f"  * **{stripped}**: {definition}")
+                else:
+                    fixed.append(f"* **{stripped}**: {definition}")
+                in_sub_block = False
+                i += 2
+            elif next_line is not None and next_line.strip() == ":" and stripped:
+                # "Term\n:" — header-only bullet (e.g. "Strengths\n:")
+                fixed.append(f"* **{stripped}**:")
+                in_sub_block = True
+                i += 2
+            else:
+                in_sub_block = False
+                fixed.append(current)
+                i += 1
+
+        result = "\n".join(fixed)
+
+        # Ensure blank line after every ### heading
+        result = re.sub(
+            r"(^#{1,6} .+$)\n([^\n])",
+            r"\1\n\n\2",
+            result,
+            flags=re.MULTILINE,
+        )
+
+        return result
 
     def _log_turn(self, role: str, content: str, response_time_ms: float = None):
         """Log a conversation turn"""
@@ -374,9 +472,9 @@ Provide the updated Clerkship Director Summary and Student-Facing Narrative with
         """
         # Look for telltale signs of formal feedback structure
         feedback_markers = [
-            "**Clerkship Director Summary",
+            "**Structured Summary",
             "**Student-Facing Narrative",
-            "## Clerkship Director Summary",
+            "## Structured Summary",
             "## Student-Facing Narrative",
             "**Context of evaluation**",
             "**Strengths**",

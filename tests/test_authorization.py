@@ -63,7 +63,8 @@ class TestConversationAuthorization:
         response = await client.get(f"/conversations/{conv.conversation_id}")
 
         assert response.status_code == 200
-        assert "User's Own Student" in response.text
+        # Apostrophes are HTML-encoded (&#39;) in the response, check a substring without it
+        assert "Own Student" in response.text
 
     @pytest.mark.asyncio
     async def test_user_cannot_send_message_to_other_users_conversation(
@@ -280,13 +281,9 @@ class TestDashboardAuthorization:
         app.dependency_overrides.clear()
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 2
-
-        student_names = [c["student_name"] for c in data["conversations"]]
-        assert "User 1 Student A" in student_names
-        assert "User 1 Student B" in student_names
-        assert "User 2 Student" not in student_names
+        assert "User 1 Student A" in response.text
+        assert "User 1 Student B" in response.text
+        assert "User 2 Student" not in response.text
 
     @pytest.mark.asyncio
     async def test_search_only_searches_own_conversations(
@@ -328,9 +325,8 @@ class TestDashboardAuthorization:
         app.dependency_overrides.clear()
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 1
-        assert data["conversations"][0]["student_name"] == "Alice Johnson"
+        assert "Alice Johnson" in response.text
+        assert "Alice Smith" not in response.text
 
 
 class TestSurveyAuthorization:

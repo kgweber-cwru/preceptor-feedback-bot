@@ -24,26 +24,39 @@
         line-height: 1.7;
     }
 
-    /* Make markdown-style headers stand out */
-    .feedback-content strong {
+    /* Section headings (### Structured Summary, ### Student-Facing Narrative) */
+    .feedback-content h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
         color: #1f2937;
-        font-size: 1.1em;
-        display: block;
         margin-top: 1.5em;
-        margin-bottom: 0.5em;
+        margin-bottom: 0.6em;
+        padding-bottom: 0.2em;
+        border-bottom: 1px solid #e5e7eb;
     }
 
-    .feedback-content strong:first-child {
+    .feedback-content h3:first-child {
         margin-top: 0;
     }
 
     /* Bullet points */
     .feedback-content ul {
-        margin: 0.5em 0 1em 1.5em;
+        margin: 0.4em 0 0.8em 1.5em;
         list-style-type: disc;
+    }
+
+    .feedback-content ul ul {
+        margin-top: 0.2em;
+        margin-bottom: 0.2em;
+        list-style-type: circle;
     }
 
     .feedback-content li {
         margin: 0.3em 0;
+    }
+
+    /* Narrative paragraphs */
+    .feedback-content p {
+        margin: 0.5em 0;
     }
 </style>

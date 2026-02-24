@@ -53,12 +53,8 @@ class TestConversationListing:
         response = await client.get("/api/conversations")
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 2
-
-        student_names = [c["student_name"] for c in data["conversations"]]
-        assert "Alice Johnson" in student_names
-        assert "Bob Smith" in student_names
+        assert "Alice Johnson" in response.text
+        assert "Bob Smith" in response.text
 
     @pytest.mark.asyncio
     async def test_empty_dashboard_shows_no_conversations(self, client, mock_firestore):
@@ -66,8 +62,7 @@ class TestConversationListing:
         response = await client.get("/api/conversations")
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 0
+        assert "No conversations yet" in response.text
 
     @pytest.mark.asyncio
     async def test_conversations_sorted_by_recent(
@@ -102,13 +97,11 @@ class TestConversationListing:
         response = await client.get("/api/conversations")
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 3
-
-        # Check order (newest first)
-        assert data["conversations"][0]["student_name"] == "Newest"
-        assert data["conversations"][1]["student_name"] == "Middle"
-        assert data["conversations"][2]["student_name"] == "Oldest"
+        assert "Newest" in response.text
+        assert "Middle" in response.text
+        assert "Oldest" in response.text
+        # Verify sort order by position in rendered HTML
+        assert response.text.find("Newest") < response.text.find("Middle") < response.text.find("Oldest")
 
 
 class TestConversationSearch:
@@ -138,13 +131,9 @@ class TestConversationSearch:
         response = await client.get("/api/conversations?search=Johnson")
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 2
-
-        student_names = [c["student_name"] for c in data["conversations"]]
-        assert "Alice Johnson" in student_names
-        assert "Charlie Johnson" in student_names
-        assert "Bob Smith" not in student_names
+        assert "Alice Johnson" in response.text
+        assert "Charlie Johnson" in response.text
+        assert "Bob Smith" not in response.text
 
     @pytest.mark.asyncio
     async def test_search_case_insensitive(self, client, mock_firestore, test_user):
@@ -159,9 +148,7 @@ class TestConversationSearch:
         response = await client.get("/api/conversations?search=alice")
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 1
-        assert data["conversations"][0]["student_name"] == "Alice Johnson"
+        assert "Alice Johnson" in response.text
 
     @pytest.mark.asyncio
     async def test_search_partial_match(self, client, mock_firestore, test_user):
@@ -176,9 +163,7 @@ class TestConversationSearch:
         response = await client.get("/api/conversations?search=Chris")
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 1
-        assert data["conversations"][0]["student_name"] == "Christopher Williams"
+        assert "Christopher Williams" in response.text
 
     @pytest.mark.asyncio
     async def test_search_no_results(self, client, mock_firestore, test_user):
@@ -192,8 +177,7 @@ class TestConversationSearch:
         response = await client.get("/api/conversations?search=Nonexistent")
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 0
+        assert "No conversations yet" in response.text
 
 
 class TestConversationFiltering:
@@ -222,10 +206,8 @@ class TestConversationFiltering:
         response = await client.get("/api/conversations?status=active")
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 1
-        assert data["conversations"][0]["student_name"] == "Active Student"
-        assert data["conversations"][0]["status"] == "active"
+        assert "Active Student" in response.text
+        assert "Completed Student" not in response.text
 
     @pytest.mark.asyncio
     async def test_filter_by_completed_status(self, client, mock_firestore, test_user):
@@ -249,10 +231,8 @@ class TestConversationFiltering:
         response = await client.get("/api/conversations?status=completed")
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 1
-        assert data["conversations"][0]["student_name"] == "Completed Student"
-        assert data["conversations"][0]["status"] == "completed"
+        assert "Completed Student" in response.text
+        assert "Active Student" not in response.text
 
     @pytest.mark.asyncio
     async def test_no_status_filter_shows_all(self, client, mock_firestore, test_user):
@@ -276,8 +256,8 @@ class TestConversationFiltering:
         response = await client.get("/api/conversations")
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 2
+        assert "Active Student" in response.text
+        assert "Completed Student" in response.text
 
 
 class TestPagination:
@@ -298,8 +278,8 @@ class TestPagination:
         response = await client.get("/api/conversations?limit=10")
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 10
+        # Each card renders one <a href="/conversations/{id}"> link
+        assert response.text.count('href="/conversations/') == 10
 
     @pytest.mark.asyncio
     async def test_pagination_offset(self, client, mock_firestore, test_user):
@@ -317,19 +297,17 @@ class TestPagination:
 
         # Get first page
         response1 = await client.get("/api/conversations?limit=5&offset=0")
-        data1 = response1.json()
-
-        # Get second page
         response2 = await client.get("/api/conversations?limit=5&offset=5")
-        data2 = response2.json()
 
-        assert len(data1["conversations"]) == 5
-        assert len(data2["conversations"]) == 5
-
-        # Ensure different conversations
-        ids1 = {c["conversation_id"] for c in data1["conversations"]}
-        ids2 = {c["conversation_id"] for c in data2["conversations"]}
-        assert ids1.isdisjoint(ids2)  # No overlap
+        assert response1.status_code == 200
+        assert response2.status_code == 200
+        # Students 00-04 on page 1, students 05-09 on page 2 (sorted newest-first)
+        assert "Student 00" in response1.text
+        assert "Student 04" in response1.text
+        assert "Student 05" not in response1.text
+        assert "Student 05" in response2.text
+        assert "Student 09" in response2.text
+        assert "Student 00" not in response2.text
 
 
 class TestCombinedFilters:
@@ -367,7 +345,6 @@ class TestCombinedFilters:
         response = await client.get("/api/conversations?search=Johnson&status=completed")
 
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["conversations"]) == 1
-        assert data["conversations"][0]["student_name"] == "Bob Johnson"
-        assert data["conversations"][0]["status"] == "completed"
+        assert "Bob Johnson" in response.text
+        assert "Alice Johnson" not in response.text
+        assert "Alice Smith" not in response.text

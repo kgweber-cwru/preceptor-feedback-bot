@@ -4,7 +4,7 @@ Tests conversation flow, message sending, and turn management.
 """
 
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, Mock
 
 pytestmark = [pytest.mark.integration, pytest.mark.conversation]
 
@@ -66,12 +66,12 @@ class TestConversationCreation:
         )
 
         assert response.status_code == 200
-        data = response.json()
-
-        conv = await mock_firestore.get_conversation(data["conversation_id"])
-        assert conv.metadata["total_turns"] == 0
-        assert conv.metadata["model"] is not None
-        assert len(conv.messages) == 0
+        assert "HX-Redirect" in response.headers
+        conversation_id = response.headers["HX-Redirect"].split("/conversations/")[1]
+        conv = await mock_firestore.get_conversation(conversation_id)
+        assert conv.metadata.total_turns == 0
+        assert conv.metadata.model is not None
+        assert isinstance(conv.messages, list)
 
 
 class TestConversationRetrieval:
@@ -136,11 +136,23 @@ class TestMessageSending:
     ):
         """Test successfully sending a message."""
         # Setup mock
-        mock_vertex = AsyncMock()
-        mock_vertex.send_message.return_value = {
-            "content": "Great! Tell me more.",
-            "contains_feedback": False,
-        }
+        mock_vertex = Mock()
+        _turn = [0]
+
+        def _send(msg):
+            _turn[0] += 1
+            mock_vertex.turn_count = _turn[0]
+            return {
+                "role": "assistant",
+                "content": "Great! Tell me more.",
+                "timestamp": "2026-02-24T12:00:00",
+                "turn": _turn[0],
+                "response_time_ms": 100.0,
+                "contains_feedback": False,
+            }
+
+        mock_vertex.send_message = Mock(side_effect=_send)
+        mock_vertex.turn_count = 0
         mock_vertex_class.return_value = mock_vertex
 
         # Create conversation
@@ -162,7 +174,7 @@ class TestMessageSending:
         # Verify message stored
         updated_conv = await mock_firestore.get_conversation(conv.conversation_id)
         assert len(updated_conv.messages) >= 2  # User message + AI response
-        assert updated_conv.metadata["total_turns"] == 1
+        assert updated_conv.metadata.total_turns == 1
 
     @pytest.mark.asyncio
     async def test_send_empty_message_fails(self, client, mock_firestore, test_user):
@@ -186,11 +198,23 @@ class TestMessageSending:
         self, mock_vertex_class, client, mock_firestore, test_user
     ):
         """Test that sending messages increments turn counter."""
-        mock_vertex = AsyncMock()
-        mock_vertex.send_message.return_value = {
-            "content": "Acknowledged.",
-            "contains_feedback": False,
-        }
+        mock_vertex = Mock()
+        _turn = [0]
+
+        def _send(msg):
+            _turn[0] += 1
+            mock_vertex.turn_count = _turn[0]
+            return {
+                "role": "assistant",
+                "content": "Acknowledged.",
+                "timestamp": "2026-02-24T12:00:00",
+                "turn": _turn[0],
+                "response_time_ms": 100.0,
+                "contains_feedback": False,
+            }
+
+        mock_vertex.send_message = Mock(side_effect=_send)
+        mock_vertex.turn_count = 0
         mock_vertex_class.return_value = mock_vertex
 
         conv = await mock_firestore.create_conversation(
@@ -206,7 +230,7 @@ class TestMessageSending:
         )
 
         conv_after_1 = await mock_firestore.get_conversation(conv.conversation_id)
-        assert conv_after_1.metadata["total_turns"] == 1
+        assert conv_after_1.metadata.total_turns == 1
 
         # Send second message
         await client.post(
@@ -215,7 +239,7 @@ class TestMessageSending:
         )
 
         conv_after_2 = await mock_firestore.get_conversation(conv.conversation_id)
-        assert conv_after_2.metadata["total_turns"] == 2
+        assert conv_after_2.metadata.total_turns == 2
 
     @pytest.mark.asyncio
     async def test_send_message_to_nonexistent_conversation(self, client):
@@ -237,11 +261,26 @@ class TestConversationFlow:
         self, mock_vertex_class, client, mock_firestore, test_user
     ):
         """Test complete conversation flow from creation to multiple messages."""
-        mock_vertex = AsyncMock()
-        mock_vertex.send_message.return_value = {
-            "content": "Response",
-            "contains_feedback": False,
-        }
+        mock_vertex = Mock()
+        _turn = [0]
+
+        def _send(msg):
+            _turn[0] += 1
+            mock_vertex.turn_count = _turn[0]
+            return {
+                "role": "assistant",
+                "content": "Response",
+                "timestamp": "2026-02-24T12:00:00",
+                "turn": _turn[0],
+                "response_time_ms": 100.0,
+                "contains_feedback": False,
+            }
+
+        mock_vertex.send_message = Mock(side_effect=_send)
+        mock_vertex.turn_count = 0
+        mock_vertex.conversation_history = []  # iterable; create_conversation() loops over it
+        mock_vertex.start_conversation = Mock(return_value="Hello, let's discuss this student.")
+        mock_vertex.set_student_name = Mock()
         mock_vertex_class.return_value = mock_vertex
 
         # Create conversation
@@ -250,7 +289,8 @@ class TestConversationFlow:
             json={"student_name": "Complete Flow Test"},
         )
         assert create_response.status_code == 200
-        conv_id = create_response.json()["conversation_id"]
+        assert "HX-Redirect" in create_response.headers
+        conv_id = create_response.headers["HX-Redirect"].split("/conversations/")[1]
 
         # Send multiple messages
         for i in range(3):
@@ -262,7 +302,7 @@ class TestConversationFlow:
 
         # Verify final state
         final_conv = await mock_firestore.get_conversation(conv_id)
-        assert final_conv.metadata["total_turns"] == 3
+        assert final_conv.metadata.total_turns == 3
         assert len(final_conv.messages) >= 6  # 3 user + 3 assistant messages
 
     @pytest.mark.asyncio
@@ -271,12 +311,23 @@ class TestConversationFlow:
         self, mock_vertex_class, client, mock_firestore, test_user
     ):
         """Test that premature feedback is detected."""
-        mock_vertex = AsyncMock()
-        # Simulate AI generating feedback prematurely
-        mock_vertex.send_message.return_value = {
-            "content": "**Clerkship Director Summary**\n\nThis is premature feedback.",
-            "contains_feedback": True,
-        }
+        mock_vertex = Mock()
+        _turn = [0]
+
+        def _send(msg):
+            _turn[0] += 1
+            mock_vertex.turn_count = _turn[0]
+            return {
+                "role": "assistant",
+                "content": "**Structured Summary**\n\nThis is premature feedback.",
+                "timestamp": "2026-02-24T12:00:00",
+                "turn": _turn[0],
+                "response_time_ms": 100.0,
+                "contains_feedback": True,
+            }
+
+        mock_vertex.send_message = Mock(side_effect=_send)
+        mock_vertex.turn_count = 0
         mock_vertex_class.return_value = mock_vertex
 
         conv = await mock_firestore.create_conversation(
@@ -305,11 +356,23 @@ class TestConversationFlow:
         from app.config import settings
         monkeypatch.setattr(settings, "MAX_TURNS", 3)
 
-        mock_vertex = AsyncMock()
-        mock_vertex.send_message.return_value = {
-            "content": "Response",
-            "contains_feedback": False,
-        }
+        mock_vertex = Mock()
+        _turn = [0]
+
+        def _send(msg):
+            _turn[0] += 1
+            mock_vertex.turn_count = _turn[0]
+            return {
+                "role": "assistant",
+                "content": "Response",
+                "timestamp": "2026-02-24T12:00:00",
+                "turn": _turn[0],
+                "response_time_ms": 100.0,
+                "contains_feedback": False,
+            }
+
+        mock_vertex.send_message = Mock(side_effect=_send)
+        mock_vertex.turn_count = 0
         mock_vertex_class.return_value = mock_vertex
 
         conv = await mock_firestore.create_conversation(
@@ -328,4 +391,4 @@ class TestConversationFlow:
 
         # Verify at limit
         final_conv = await mock_firestore.get_conversation(conv.conversation_id)
-        assert final_conv.metadata["total_turns"] == 3
+        assert final_conv.metadata.total_turns == 3

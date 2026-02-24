@@ -4,7 +4,7 @@ Tests login, callback, JWT generation, and logout.
 """
 
 import pytest
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, AsyncMock
 from datetime import datetime, timedelta
 
 pytestmark = [pytest.mark.integration, pytest.mark.auth]
@@ -26,59 +26,74 @@ class TestOAuthLogin:
 
     @pytest.mark.asyncio
     async def test_login_sets_oauth_state_cookie(self, unauthenticated_client):
-        """Test that login sets oauth_state cookie."""
+        """Test that login handles OAuth state (server-side sessions, not cookies)."""
         response = await unauthenticated_client.get("/auth/login", follow_redirects=False)
 
-        cookies = response.cookies
-        assert "oauth_state" in cookies
-        assert cookies["oauth_state"] != ""
-        assert cookies.get("oauth_state_httponly", True)
+        # Implementation uses server-side Firestore sessions instead of cookies
+        # (Safari blocks samesite=none cookies). Verify state is passed via URL.
+        assert response.status_code == 302
+        assert "state=" in response.headers["location"]
 
     @pytest.mark.asyncio
     async def test_login_sets_code_verifier_cookie(self, unauthenticated_client):
-        """Test that login sets code_verifier cookie for PKCE."""
+        """Test that login uses PKCE (code_challenge present in OAuth URL)."""
         response = await unauthenticated_client.get("/auth/login", follow_redirects=False)
 
-        cookies = response.cookies
-        assert "oauth_code_verifier" in cookies
-        assert cookies["oauth_code_verifier"] != ""
+        # PKCE is implemented server-side; code_challenge appears in the OAuth redirect URL
+        assert response.status_code == 302
+        assert "code_challenge=" in response.headers["location"]
+        assert "code_challenge_method=S256" in response.headers["location"]
 
 
 class TestOAuthCallback:
     """Tests for OAuth callback handling."""
 
     @pytest.mark.asyncio
-    @patch("app.api.auth.httpx.AsyncClient.post")
-    @patch("app.api.auth.httpx.AsyncClient.get")
     async def test_successful_callback_creates_jwt(
-        self, mock_get, mock_post, unauthenticated_client, mock_firestore
+        self, unauthenticated_client, mock_firestore
     ):
         """Test successful OAuth callback creates JWT and user."""
-        # Mock Google token exchange
-        mock_post.return_value = Mock(
-            status_code=200,
-            json=lambda: {
-                "access_token": "mock_access_token",
-                "id_token": "mock_id_token",
-            },
+        from app.services.oauth_session_store import OAuthSession
+
+        mock_session = OAuthSession(
+            state="mock_state",
+            code_verifier="mock_verifier",
+            created_at=datetime.utcnow(),
         )
 
-        # Mock Google userinfo
-        mock_get.return_value = Mock(
-            status_code=200,
-            json=lambda: {
-                "email": "test@case.edu",
-                "name": "Test User",
-                "picture": "https://example.com/pic.jpg",
-            },
+        mock_auth = Mock()
+        mock_auth.exchange_code_for_tokens = AsyncMock(
+            return_value={"access_token": "mock_access_token", "id_token": "mock_id_token"}
         )
+        mock_auth.verify_google_id_token = Mock(
+            return_value={"email": "test@case.edu", "name": "Test User", "picture": "https://example.com/pic.jpg", "sub": "google_123"}
+        )
+        mock_auth.extract_user_info_from_id_token = Mock(
+            return_value={"email": "test@case.edu", "name": "Test User", "picture_url": "https://example.com/pic.jpg", "domain": "case.edu"}
+        )
+        mock_auth.check_domain_restriction = Mock(return_value=True)
+        mock_auth.create_jwt_token = Mock(return_value="mock_jwt_token_string")
 
-        # Set cookies as if we came from /auth/login
-        response = await unauthenticated_client.get(
-            "/auth/callback?code=mock_code&state=mock_state",
-            cookies={"oauth_state": "mock_state", "oauth_code_verifier": "mock_verifier"},
-            follow_redirects=False,
-        )
+        with patch("app.api.auth.oauth_store") as mock_store, \
+             patch("app.api.auth.auth_service", mock_auth), \
+             patch("app.api.auth.FirestoreService") as mock_fs_class:
+
+            mock_store.get_session.return_value = mock_session
+            mock_store.delete_session.return_value = None
+
+            mock_fs_instance = AsyncMock()
+            mock_fs_instance.get_or_create_user.return_value = Mock(
+                user_id="test_user_123",
+                email="test@case.edu",
+                name="Test User",
+                domain="case.edu",
+            )
+            mock_fs_class.return_value = mock_fs_instance
+
+            response = await unauthenticated_client.get(
+                "/auth/callback?code=mock_code&state=mock_state",
+                follow_redirects=False,
+            )
 
         assert response.status_code == 302
         assert "/dashboard" in response.headers["location"]
@@ -170,83 +185,109 @@ class TestDomainRestriction:
     """Tests for OAuth domain restriction."""
 
     @pytest.mark.asyncio
-    @patch("app.api.auth.httpx.AsyncClient.post")
-    @patch("app.api.auth.httpx.AsyncClient.get")
     async def test_allowed_domain_grants_access(
-        self, mock_get, mock_post, unauthenticated_client, monkeypatch
+        self, unauthenticated_client, monkeypatch
     ):
         """Test that users from allowed domain can log in."""
-        # Enable domain restriction via monkeypatch
         from app.config import settings
+        from app.services.oauth_session_store import OAuthSession
+
         monkeypatch.setattr(settings, "OAUTH_DOMAIN_RESTRICTION", True)
-        # Patch the property to return the list directly
         monkeypatch.setattr(type(settings), "OAUTH_ALLOWED_DOMAINS", property(lambda self: ["case.edu"]))
 
-        # Mock Google token exchange
-        mock_post.return_value = Mock(
-            status_code=200,
-            json=lambda: {
-                "access_token": "mock_access_token",
-                "id_token": "mock_id_token",
-            },
+        mock_session = OAuthSession(
+            state="mock_state",
+            code_verifier="mock_verifier",
+            created_at=datetime.utcnow(),
         )
 
-        # Mock Google userinfo with allowed domain
-        mock_get.return_value = Mock(
-            status_code=200,
-            json=lambda: {
-                "email": "user@case.edu",
-                "name": "Allowed User",
-                "picture": "https://example.com/pic.jpg",
-            },
+        mock_auth = Mock()
+        mock_auth.exchange_code_for_tokens = AsyncMock(
+            return_value={"access_token": "mock_access_token", "id_token": "mock_id_token"}
         )
+        mock_auth.verify_google_id_token = Mock(
+            return_value={"email": "user@case.edu", "name": "Allowed User", "picture": "https://example.com/pic.jpg", "sub": "google_123"}
+        )
+        mock_auth.extract_user_info_from_id_token = Mock(
+            return_value={"email": "user@case.edu", "name": "Allowed User", "picture_url": "https://example.com/pic.jpg", "domain": "case.edu"}
+        )
+        mock_auth.check_domain_restriction = Mock(return_value=True)
+        mock_auth.create_jwt_token = Mock(return_value="mock_jwt_token_string")
 
-        response = await unauthenticated_client.get(
-            "/auth/callback?code=mock_code&state=mock_state",
-            cookies={"oauth_state": "mock_state", "oauth_code_verifier": "mock_verifier"},
-            follow_redirects=False,
-        )
+        with patch("app.api.auth.oauth_store") as mock_store, \
+             patch("app.api.auth.auth_service", mock_auth), \
+             patch("app.api.auth.FirestoreService") as mock_fs_class:
+
+            mock_store.get_session.return_value = mock_session
+            mock_store.delete_session.return_value = None
+
+            mock_fs_instance = AsyncMock()
+            mock_fs_instance.get_or_create_user.return_value = Mock(
+                user_id="test_user_123",
+                email="user@case.edu",
+                name="Allowed User",
+                domain="case.edu",
+            )
+            mock_fs_class.return_value = mock_fs_instance
+
+            response = await unauthenticated_client.get(
+                "/auth/callback?code=mock_code&state=mock_state",
+                follow_redirects=False,
+            )
 
         assert response.status_code == 302
         assert "/dashboard" in response.headers["location"]
 
     @pytest.mark.asyncio
-    @patch("app.api.auth.httpx.AsyncClient.post")
-    @patch("app.api.auth.httpx.AsyncClient.get")
     async def test_disallowed_domain_denies_access(
-        self, mock_get, mock_post, unauthenticated_client, monkeypatch
+        self, unauthenticated_client, monkeypatch
     ):
         """Test that users from disallowed domain are denied."""
-        # Enable domain restriction via monkeypatch
         from app.config import settings
+        from app.services.oauth_session_store import OAuthSession
+
         monkeypatch.setattr(settings, "OAUTH_DOMAIN_RESTRICTION", True)
-        # Patch the property to return the list directly
         monkeypatch.setattr(type(settings), "OAUTH_ALLOWED_DOMAINS", property(lambda self: ["case.edu"]))
 
-        # Mock Google token exchange
-        mock_post.return_value = Mock(
-            status_code=200,
-            json=lambda: {
-                "access_token": "mock_access_token",
-                "id_token": "mock_id_token",
-            },
+        mock_session = OAuthSession(
+            state="mock_state",
+            code_verifier="mock_verifier",
+            created_at=datetime.utcnow(),
         )
 
-        # Mock Google userinfo with disallowed domain
-        mock_get.return_value = Mock(
-            status_code=200,
-            json=lambda: {
-                "email": "user@gmail.com",
-                "name": "Unauthorized User",
-                "picture": "https://example.com/pic.jpg",
-            },
+        mock_auth = Mock()
+        mock_auth.exchange_code_for_tokens = AsyncMock(
+            return_value={"access_token": "mock_access_token", "id_token": "mock_id_token"}
         )
-
-        response = await unauthenticated_client.get(
-            "/auth/callback?code=mock_code&state=mock_state",
-            cookies={"oauth_state": "mock_state", "oauth_code_verifier": "mock_verifier"},
-            follow_redirects=False,
+        mock_auth.verify_google_id_token = Mock(
+            return_value={"email": "user@gmail.com", "name": "Unauthorized User", "picture": "https://example.com/pic.jpg", "sub": "google_456"}
         )
+        mock_auth.extract_user_info_from_id_token = Mock(
+            return_value={"email": "user@gmail.com", "name": "Unauthorized User", "picture_url": "https://example.com/pic.jpg", "domain": "gmail.com"}
+        )
+        mock_auth.check_domain_restriction = Mock(return_value=False)
+        mock_auth.create_jwt_token = Mock(return_value="mock_jwt_token_string")
 
-        # Should return error or redirect to login with error
+        with patch("app.api.auth.oauth_store") as mock_store, \
+             patch("app.api.auth.auth_service", mock_auth), \
+             patch("app.api.auth.FirestoreService") as mock_fs_class:
+
+            mock_store.get_session.return_value = mock_session
+            mock_store.delete_session.return_value = None
+
+            mock_fs_instance = AsyncMock()
+            mock_fs_instance.get_or_create_user.return_value = Mock(
+                user_id="other_user",
+                email="user@gmail.com",
+                name="Unauthorized User",
+                domain="gmail.com",
+            )
+            mock_fs_class.return_value = mock_fs_instance
+
+            response = await unauthenticated_client.get(
+                "/auth/callback?code=mock_code&state=mock_state",
+                follow_redirects=False,
+            )
+
+        # Should return 403 error for disallowed domain
         assert response.status_code in [403, 302]

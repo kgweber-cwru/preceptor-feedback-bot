@@ -237,7 +237,7 @@ class VertexAIClient:
 
         prompt = """Based on our conversation, please generate both outputs:
 
-1. **Clerkship Director Summary** (structured bullets with Context, Strengths, Areas for Improvement, Suggested Focus)
+1. **Structured Summary** (structured bullets with Context, Strengths, Areas for Improvement, Suggested Focus)
 2. **Student-Facing Narrative** (constructive paragraph with context, strengths, 1-2 actionable suggestions, encouragement)
 
 Please format clearly with headers."""
@@ -363,9 +363,9 @@ Please format clearly with headers."""
         """
         # Look for telltale signs of formal feedback structure
         feedback_markers = [
-            "**Clerkship Director Summary",
+            "**Structured Summary",
             "**Student-Facing Narrative",
-            "## Clerkship Director Summary",
+            "## Structured Summary",
             "## Student-Facing Narrative",
             "**Context of evaluation**",
             "**Strengths**",

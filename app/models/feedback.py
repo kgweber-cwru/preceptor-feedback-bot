@@ -31,7 +31,7 @@ class FeedbackVersion(BaseModel):
                 "version": 1,
                 "timestamp": "2025-01-20T14:15:00Z",
                 "type": "initial",
-                "content": "**Clerkship Director Summary**\n\n...",
+                "content": "**Structured Summary**\n\n...",
                 "request": None,
             }
         }
@@ -63,7 +63,7 @@ class Feedback(BaseModel):
                         "version": 1,
                         "timestamp": "2025-01-20T14:15:00Z",
                         "type": "initial",
-                        "content": "**Clerkship Director Summary**\n\n...",
+                        "content": "**Structured Summary**\n\n...",
                         "request": None,
                     }
                 ],

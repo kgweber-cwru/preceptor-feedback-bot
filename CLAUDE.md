@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A conversational AI tool that helps medical school faculty provide structured, competency-based feedback on medical students after clinical encounters. Built with FastAPI, HTMX, Google Vertex AI (Gemini), Google Cloud Firestore, and Google OAuth 2.0.
 
 The application guides preceptors through a brief (3–5 minute) conversation, then generates two outputs organized by CWRU School of Medicine's core competencies:
-1. **Clerkship Director Summary** — Structured bullets (strengths, areas for improvement, suggestions)
+1. **Structured Summary** — Structured bullets (strengths, areas for improvement, suggestions)
 2. **Student-Facing Narrative** — Constructive, supportive feedback for the student
 
 After completing a session, preceptors are prompted to fill out an optional post-session survey.
@@ -92,7 +92,7 @@ pytest tests/test_survey.py -v  # specific file
 The conversation phase must NOT produce final feedback until `generate_feedback()` is explicitly called.
 
 - `app/services/vertex_ai_client.py::_contains_formal_feedback()` detects if the model ignores instructions and generates feedback early
-- Checks for markers like `**Clerkship Director Summary`, `**Student-Facing Narrative`, `**Strengths**`, etc.
+- Checks for markers like `**Structured Summary`, `**Student-Facing Narrative`, `**Strengths**`, etc.
 - `send_message()` returns `(response_text, contains_feedback)` — the API layer treats `contains_feedback=True` as a warning signal
 - **If output format markers change, update `feedback_markers` in `_contains_formal_feedback()`**
 
