@@ -5,19 +5,13 @@ Handles conversation creation, messaging, and retrieval.
 
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
-from app.dependencies import get_current_user, get_firestore
+from app.dependencies import get_current_user, get_firestore, templates
 from app.services.firestore_service import FirestoreService
 from app.services.conversation_service import ConversationService
 from app.models.conversation import ConversationCreate, MessageCreate
-from app.utils.markdown import markdown_to_html
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-
-# Register markdown filter for this router's templates
-templates.env.filters["markdown"] = markdown_to_html
 
 
 @router.post("")

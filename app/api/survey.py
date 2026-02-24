@@ -5,15 +5,13 @@ Handles survey display, submission, and skip functionality.
 
 from fastapi import APIRouter, Request, Depends, HTTPException, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from typing import Optional
 
-from app.dependencies import get_current_user, get_firestore
+from app.dependencies import get_current_user, get_firestore, templates
 from app.services.firestore_service import FirestoreService
 from app.models.survey import SurveyCreate, HelpfulnessRating, LikelihoodRating
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/conversations/{conversation_id}/survey", response_class=HTMLResponse)

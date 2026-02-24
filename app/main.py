@@ -8,8 +8,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-
 from app.config import settings
 from app.middleware.auth_middleware import AuthMiddleware
 from app.api import auth, conversations, feedback, user, survey
@@ -56,18 +54,8 @@ app.add_middleware(AuthMiddleware)
 # Mount static files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# Initialize templates
-templates = Jinja2Templates(directory="app/templates")
-
-# Add custom template filters
-from app.utils.markdown import markdown_to_html
-from app.utils.time_formatting import timeago
-templates.env.filters["timeago"] = timeago
-templates.env.filters["markdown"] = markdown_to_html
-
-# Add global template variables (available to all templates)
-templates.env.globals["app_name"] = settings.APP_NAME
-templates.env.globals["version"] = settings.APP_VERSION
+# Shared templates instance (globals and filters configured in app.dependencies)
+from app.dependencies import templates
 
 
 # Include API routers

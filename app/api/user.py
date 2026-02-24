@@ -7,19 +7,13 @@ from typing import Optional
 
 from fastapi import APIRouter, Request, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
-from app.dependencies import get_current_user, get_firestore
+from app.dependencies import get_current_user, get_firestore, templates
 from app.services.firestore_service import FirestoreService
 from app.services.conversation_service import ConversationService
 from app.models.conversation import ConversationStatus
-from app.utils.time_formatting import timeago
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-
-# Register custom filters for this router's templates
-templates.env.filters["timeago"] = timeago
 
 
 @router.get("/api/conversations", response_class=HTMLResponse)

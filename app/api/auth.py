@@ -5,16 +5,15 @@ Handles login redirect, OAuth callback, logout, and token verification.
 
 from fastapi import APIRouter, Request, HTTPException, Response
 from fastapi.responses import RedirectResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from app.config import settings
+from app.dependencies import templates
 from app.services.auth_service import AuthService
 from app.services.firestore_service import FirestoreService
 from app.services.oauth_session_store import get_oauth_store
 from app.models.user import UserCreate
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 auth_service = AuthService()
 oauth_store = get_oauth_store()
 

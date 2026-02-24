@@ -6,8 +6,20 @@ Provides common dependencies like current user, Firestore client, etc.
 from typing import Optional
 
 from fastapi import Request, HTTPException, Depends
+from fastapi.templating import Jinja2Templates
 
+from app.config import settings
 from app.services.firestore_service import FirestoreService
+from app.utils.markdown import markdown_to_html
+from app.utils.time_formatting import timeago
+
+# Shared Jinja2Templates instance — globals and filters are registered once here
+# so all routes see the same values regardless of which router handles the request.
+templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["app_name"] = settings.APP_NAME
+templates.env.globals["version"] = settings.APP_VERSION
+templates.env.filters["markdown"] = markdown_to_html
+templates.env.filters["timeago"] = timeago
 
 
 def get_current_user(request: Request) -> dict:
