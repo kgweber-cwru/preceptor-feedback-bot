@@ -4,18 +4,31 @@ from enum import Enum
 from pydantic import BaseModel
 
 
-class ToolRating(str, Enum):
-    """Rating options for tool usefulness survey."""
-    GREAT_FIRST_TRY = "Was great on the first try"
-    HELPFUL_WITH_EDITS = "Gave me something helpful I can edit"
-    NOT_HELPFUL = "Not especially helpful"
+class HelpfulnessRating(str, Enum):
+    """Rating options for chatbot helpfulness."""
+    NOT_AT_ALL_HELPFUL = "Not at all helpful"
+    SLIGHTLY_HELPFUL = "Slightly helpful"
+    MODERATELY_HELPFUL = "Moderately helpful"
+    VERY_HELPFUL = "Very helpful"
+    EXTREMELY_HELPFUL = "Extremely helpful"
+
+
+class LikelihoodRating(str, Enum):
+    """Rating options for likelihood to use tool again."""
+    VERY_UNLIKELY = "Very unlikely"
+    UNLIKELY = "Unlikely"
+    NEUTRAL = "Neutral"
+    LIKELY = "Likely"
+    VERY_LIKELY = "Very likely"
 
 
 class SurveyBase(BaseModel):
     """Base survey fields."""
-    preceptor_name: Optional[str] = None
-    tool_rating: ToolRating
+    helpfulness_rating: Optional[HelpfulnessRating] = None
+    likelihood_rating: Optional[LikelihoodRating] = None
     comments: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
 
 
 class SurveyCreate(SurveyBase):

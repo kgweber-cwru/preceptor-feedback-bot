@@ -200,7 +200,7 @@ gcloud projects add-iam-policy-binding meded-gcp-sandbox \
 **Solution:** Check that:
 1. Vertex AI is enabled: https://console.cloud.google.com/apis/library/aiplatform.googleapis.com
 2. Service account has "Vertex AI User" role
-3. Model name in .env is correct (gemini-2.0-flash-001 or gemini-2.5-flash)
+3. Model name in .env is correct (gemini-2.5-flash or gemini-2.5-flash)
 
 ## Firestore Collections Created
 

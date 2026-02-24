@@ -10,7 +10,7 @@ from typing import Optional
 
 from app.dependencies import get_current_user, get_firestore
 from app.services.firestore_service import FirestoreService
-from app.models.survey import SurveyCreate, ToolRating
+from app.models.survey import SurveyCreate, HelpfulnessRating, LikelihoodRating
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -47,7 +47,8 @@ async def show_survey(
             {
                 "request": request,
                 "conversation": conversation,
-                "tool_ratings": [rating.value for rating in ToolRating],
+                "helpfulness_ratings": [rating.value for rating in HelpfulnessRating],
+                "likelihood_ratings": [rating.value for rating in LikelihoodRating],
             },
         )
 
@@ -60,9 +61,11 @@ async def show_survey(
 @router.post("/conversations/{conversation_id}/survey")
 async def submit_survey(
     conversation_id: str,
-    preceptor_name: Optional[str] = Form(None),
-    tool_rating: str = Form(...),
+    helpfulness_rating: str = Form(...),
+    likelihood_rating: str = Form(...),
     comments: Optional[str] = Form(None),
+    contact_name: Optional[str] = Form(None),
+    contact_email: Optional[str] = Form(None),
     current_user: dict = Depends(get_current_user),
     firestore: FirestoreService = Depends(get_firestore),
 ):
@@ -89,9 +92,11 @@ async def submit_survey(
         # Validate and create survey
         try:
             survey_data = SurveyCreate(
-                preceptor_name=preceptor_name,
-                tool_rating=ToolRating(tool_rating),
+                helpfulness_rating=HelpfulnessRating(helpfulness_rating),
+                likelihood_rating=LikelihoodRating(likelihood_rating),
                 comments=comments,
+                contact_name=contact_name,
+                contact_email=contact_email,
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"Invalid survey data: {str(e)}")
@@ -136,13 +141,8 @@ async def skip_survey(
         # Check if survey already submitted
         existing_survey = await firestore.get_survey_by_conversation(conversation_id)
         if not existing_survey:
-            # Create empty survey with skipped=True
-            # Use first rating as placeholder (won't be used since skipped=True)
-            survey_data = SurveyCreate(
-                preceptor_name=None,
-                tool_rating=ToolRating.GREAT_FIRST_TRY,
-                comments=None,
-            )
+            # Create empty survey with skipped=True, all fields None
+            survey_data = SurveyCreate()
 
             await firestore.create_survey(
                 conversation_id=conversation_id,

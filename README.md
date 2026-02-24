@@ -24,14 +24,15 @@ All feedback is organized according to [CWRU School of Medicine's core competenc
 ┌─────────────────────────────────────────────────────────────┐
 │  FastAPI + HTMX UI (app/)                                   │
 │  ├─ Authentication (Google OAuth 2.0 + JWT)                 │
-│  ├─ API Routes (conversations, feedback, user)              │
+│  ├─ API Routes (auth, conversations, feedback, survey, user) │
 │  └─ Services                                                │
 │      ├─ VertexAIClient → Google Vertex AI (Gemini)          │
 │      ├─ ConversationService                                 │
-│      └─ FirestoreService → Google Cloud Firestore           │
+│      ├─ FirestoreService → Google Cloud Firestore           │
+│      └─ OAuthSessionStore → Google Cloud Firestore          │
 └─────────────────────────────────────────────────────────────┘
          │
-         ├─> Firestore: Conversations, Feedback, Users
+         ├─> Firestore: Conversations, Feedback, Users, Surveys
          ├─> Secret Manager: OAuth & JWT secrets
          └─> Cloud Storage: Logs & archives
 ```
@@ -69,10 +70,16 @@ cp .env.example .env
 ### 3. Run Locally
 
 ```bash
-uvicorn app.main:app --reload --port 8080
+./start-dev.sh
 ```
 
+This script activates the virtual environment, validates your `.env`, and starts the server with auto-reload.
 Access at: http://localhost:8080
+
+Alternatively, run directly:
+```bash
+uvicorn app.main:app --reload --port 8080
+```
 
 ## Full Deployment Guide
 
@@ -92,22 +99,26 @@ preceptor-feedback-bot/
 │   │   ├── auth.py                  # OAuth login/logout
 │   │   ├── conversations.py         # Conversation management
 │   │   ├── feedback.py              # Feedback generation
+│   │   ├── survey.py                # Post-session survey
 │   │   └── user.py                  # Dashboard & user profile
 │   ├── services/                    # Business logic
 │   │   ├── auth_service.py          # OAuth & JWT handling
 │   │   ├── firestore_service.py     # Database operations
 │   │   ├── conversation_service.py  # Conversation orchestration
+│   │   ├── oauth_session_store.py   # Firestore-backed OAuth state
 │   │   └── vertex_ai_client.py      # Vertex AI wrapper
 │   ├── models/                      # Pydantic data models
 │   │   ├── user.py
 │   │   ├── conversation.py
-│   │   └── feedback.py
+│   │   ├── feedback.py
+│   │   └── survey.py
 │   ├── templates/                   # Jinja2 HTML templates
 │   │   ├── base.html
 │   │   ├── login.html
 │   │   ├── dashboard.html
 │   │   ├── conversation.html
 │   │   ├── feedback.html
+│   │   ├── survey.html
 │   │   └── components/
 │   ├── static/                      # CSS, JS, images
 │   └── utils/                       # Utilities
@@ -115,9 +126,13 @@ preceptor-feedback-bot/
 │       └── time_formatting.py
 ├── prompts/
 │   └── system_prompt.md            # AI system instructions
-├── archive/                         # Historical files (Streamlit version)
+├── tests/                           # Test suite
+├── archive/                         # Historical files and migration docs
+├── .env.example                     # Environment variable template
 ├── requirements.txt                 # Python dependencies
+├── pytest.ini                       # Test configuration
 ├── Dockerfile                       # Container definition
+├── start-dev.sh                     # Local development startup script
 ├── deploy.sh                        # Quick deployment script
 ├── setup_secrets.sh                 # Secret Manager setup
 ├── cloudbuild.yaml                  # Cloud Build configuration
@@ -285,7 +300,21 @@ To modify conversation style, questions, or output format, edit `prompts/system_
 ### Testing Locally
 
 ```bash
+# Run the test suite
+pytest
+
+# Run with coverage report
+pytest --cov=app
+
+# Run specific test file
+pytest tests/test_survey.py -v
+```
+
+```bash
 # Run development server with auto-reload
+./start-dev.sh
+
+# Or directly:
 uvicorn app.main:app --reload --port 8080 --log-level debug
 
 # Access at http://localhost:8080
@@ -325,16 +354,6 @@ For questions about CWRU medical education workflows, contact your medical educa
 3. Update documentation if changing deployment procedures
 4. Deploy: `./deploy.sh`
 5. Verify in production
-
-## Migration from Streamlit
-
-The original Streamlit implementation has been archived in `archive/streamlit-version/`. All functionality has been migrated to FastAPI with these improvements:
-
-- **Multi-user support** with Google OAuth authentication
-- **Persistent storage** with Firestore (vs. local files)
-- **Better UX** with HTMX (vs. page reloads)
-- **Production-ready** with Secret Manager, security rules, proper auth
-- **Scalable** - Cloud Run auto-scales based on demand
 
 ## License
 

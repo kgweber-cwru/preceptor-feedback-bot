@@ -525,9 +525,11 @@ class FirestoreService:
             "conversation_id": conversation_id,
             "user_id": user_id,
             "student_name": student_name,
-            "preceptor_name": survey_data.preceptor_name,
-            "tool_rating": survey_data.tool_rating.value,
+            "helpfulness_rating": survey_data.helpfulness_rating.value if survey_data.helpfulness_rating else None,
+            "likelihood_rating": survey_data.likelihood_rating.value if survey_data.likelihood_rating else None,
             "comments": survey_data.comments,
+            "contact_name": survey_data.contact_name,
+            "contact_email": survey_data.contact_email,
             "submitted_at": datetime.utcnow(),
             "skipped": skipped,
         }

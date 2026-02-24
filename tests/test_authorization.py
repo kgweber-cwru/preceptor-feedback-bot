@@ -401,7 +401,8 @@ class TestSurveyAuthorization:
             response = await client.post(
                 f"/conversations/{conv.conversation_id}/survey",
                 data={
-                    "tool_rating": "Was great on the first try",
+                    "helpfulness_rating": "Very helpful",
+                    "likelihood_rating": "Likely",
                     "comments": "Unauthorized survey",
                 },
             )

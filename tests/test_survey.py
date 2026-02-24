@@ -4,7 +4,7 @@ Tests survey display, submission, skip functionality, and data storage.
 """
 
 import pytest
-from app.models.survey import ToolRating
+from app.models.survey import HelpfulnessRating, LikelihoodRating
 
 pytestmark = [pytest.mark.integration, pytest.mark.survey]
 
@@ -75,8 +75,8 @@ class TestSurveyAccess:
 
         # Create survey
         survey_data = SurveyCreate(
-            preceptor_name="Dr. Test",
-            tool_rating=ToolRating.GREAT_FIRST_TRY,
+            helpfulness_rating=HelpfulnessRating.VERY_HELPFUL,
+            likelihood_rating=LikelihoodRating.LIKELY,
             comments="Test comment",
         )
         await mock_firestore.create_survey(
@@ -111,9 +111,11 @@ class TestSurveySubmission:
         response = await client.post(
             f"/conversations/{conv.conversation_id}/survey",
             data={
-                "preceptor_name": "Dr. John Smith",
-                "tool_rating": "Was great on the first try",
+                "helpfulness_rating": "Very helpful",
+                "likelihood_rating": "Likely",
                 "comments": "Very helpful tool, saved me time!",
+                "contact_name": "Dr. John Smith",
+                "contact_email": "john.smith@example.com",
             },
             follow_redirects=False,
         )
@@ -124,9 +126,11 @@ class TestSurveySubmission:
         # Verify survey stored
         survey = await mock_firestore.get_survey_by_conversation(conv.conversation_id)
         assert survey is not None
-        assert survey.preceptor_name == "Dr. John Smith"
-        assert survey.tool_rating == ToolRating.GREAT_FIRST_TRY
+        assert survey.helpfulness_rating == HelpfulnessRating.VERY_HELPFUL
+        assert survey.likelihood_rating == LikelihoodRating.LIKELY
         assert survey.comments == "Very helpful tool, saved me time!"
+        assert survey.contact_name == "Dr. John Smith"
+        assert survey.contact_email == "john.smith@example.com"
         assert survey.skipped is False
 
     @pytest.mark.asyncio
@@ -143,7 +147,8 @@ class TestSurveySubmission:
         response = await client.post(
             f"/conversations/{conv.conversation_id}/survey",
             data={
-                "tool_rating": "Gave me something helpful I can edit",
+                "helpfulness_rating": "Moderately helpful",
+                "likelihood_rating": "Neutral",
             },
             follow_redirects=False,
         )
@@ -154,16 +159,17 @@ class TestSurveySubmission:
         # Verify survey stored
         survey = await mock_firestore.get_survey_by_conversation(conv.conversation_id)
         assert survey is not None
-        assert survey.preceptor_name is None
-        assert survey.tool_rating == ToolRating.HELPFUL_WITH_EDITS
+        assert survey.helpfulness_rating == HelpfulnessRating.MODERATELY_HELPFUL
+        assert survey.likelihood_rating == LikelihoodRating.NEUTRAL
         assert survey.comments is None
+        assert survey.contact_name is None
         assert survey.skipped is False
 
     @pytest.mark.asyncio
     async def test_submit_survey_missing_required_field(
         self, client, mock_firestore, test_user
     ):
-        """Test submitting survey without required tool_rating fails."""
+        """Test submitting survey without required rating fields fails."""
         conv = await mock_firestore.create_conversation(
             user_id=test_user.user_id,
             student_name="Missing Rating Test",
@@ -173,7 +179,6 @@ class TestSurveySubmission:
         response = await client.post(
             f"/conversations/{conv.conversation_id}/survey",
             data={
-                "preceptor_name": "Dr. Smith",
                 "comments": "Good tool",
             },
         )
@@ -184,23 +189,32 @@ class TestSurveySubmission:
     async def test_submit_survey_with_all_rating_options(
         self, client, mock_firestore, test_user
     ):
-        """Test submitting survey with each rating option."""
-        ratings = [
-            "Was great on the first try",
-            "Gave me something helpful I can edit",
-            "Not especially helpful",
+        """Test submitting survey with each helpfulness and likelihood rating option."""
+        helpfulness_ratings = [
+            "Not at all helpful",
+            "Slightly helpful",
+            "Moderately helpful",
+            "Very helpful",
+            "Extremely helpful",
+        ]
+        likelihood_ratings = [
+            "Very unlikely",
+            "Unlikely",
+            "Neutral",
+            "Likely",
+            "Very likely",
         ]
 
-        for rating in ratings:
+        for h_rating, l_rating in zip(helpfulness_ratings, likelihood_ratings):
             conv = await mock_firestore.create_conversation(
                 user_id=test_user.user_id,
-                student_name=f"Rating Test - {rating}",
+                student_name=f"Rating Test - {h_rating}",
                 model="gemini-2.5-flash",
             )
 
             response = await client.post(
                 f"/conversations/{conv.conversation_id}/survey",
-                data={"tool_rating": rating},
+                data={"helpfulness_rating": h_rating, "likelihood_rating": l_rating},
                 follow_redirects=False,
             )
 
@@ -209,7 +223,8 @@ class TestSurveySubmission:
             # Verify survey stored
             survey = await mock_firestore.get_survey_by_conversation(conv.conversation_id)
             assert survey is not None
-            assert survey.tool_rating.value == rating
+            assert survey.helpfulness_rating.value == h_rating
+            assert survey.likelihood_rating.value == l_rating
 
     @pytest.mark.asyncio
     async def test_duplicate_survey_submission_redirects(
@@ -226,8 +241,8 @@ class TestSurveySubmission:
 
         # Submit first survey
         survey_data = SurveyCreate(
-            preceptor_name="Dr. First",
-            tool_rating=ToolRating.GREAT_FIRST_TRY,
+            helpfulness_rating=HelpfulnessRating.VERY_HELPFUL,
+            likelihood_rating=LikelihoodRating.LIKELY,
             comments="First submission",
         )
         await mock_firestore.create_survey(
@@ -241,8 +256,8 @@ class TestSurveySubmission:
         response = await client.post(
             f"/conversations/{conv.conversation_id}/survey",
             data={
-                "preceptor_name": "Dr. Second",
-                "tool_rating": "Not especially helpful",
+                "helpfulness_rating": "Not at all helpful",
+                "likelihood_rating": "Very unlikely",
                 "comments": "Second submission",
             },
             follow_redirects=False,
@@ -254,7 +269,7 @@ class TestSurveySubmission:
 
         # Verify only one survey exists (the first one)
         survey = await mock_firestore.get_survey_by_conversation(conv.conversation_id)
-        assert survey.preceptor_name == "Dr. First"
+        assert survey.helpfulness_rating == HelpfulnessRating.VERY_HELPFUL
         assert survey.comments == "First submission"
 
 
@@ -282,7 +297,8 @@ class TestSurveySkip:
         survey = await mock_firestore.get_survey_by_conversation(conv.conversation_id)
         assert survey is not None
         assert survey.skipped is True
-        assert survey.preceptor_name is None
+        assert survey.helpfulness_rating is None
+        assert survey.likelihood_rating is None
         assert survey.comments is None
 
     @pytest.mark.asyncio
@@ -318,11 +334,7 @@ class TestSurveySkip:
         )
 
         # Skip first time
-        survey_data = SurveyCreate(
-            preceptor_name=None,
-            tool_rating=ToolRating.GREAT_FIRST_TRY,
-            comments=None,
-        )
+        survey_data = SurveyCreate()
         await mock_firestore.create_survey(
             conversation_id=conv.conversation_id,
             user_id=test_user.user_id,
@@ -359,8 +371,8 @@ class TestSurveyDataRetrieval:
             )
 
             survey_data = SurveyCreate(
-                preceptor_name=f"Dr. {i}",
-                tool_rating=ToolRating.GREAT_FIRST_TRY,
+                helpfulness_rating=HelpfulnessRating.EXTREMELY_HELPFUL,
+                likelihood_rating=LikelihoodRating.VERY_LIKELY,
                 comments=f"Comment {i}",
             )
             await mock_firestore.create_survey(
@@ -387,7 +399,10 @@ class TestSurveyDataRetrieval:
 
         response = await client.post(
             f"/conversations/{conv.conversation_id}/survey",
-            data={"tool_rating": "Was great on the first try"},
+            data={
+                "helpfulness_rating": "Very helpful",
+                "likelihood_rating": "Likely",
+            },
             follow_redirects=False,
         )
 

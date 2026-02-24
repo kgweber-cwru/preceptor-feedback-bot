@@ -4,39 +4,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A Streamlit-based conversational AI tool that helps medical school faculty provide structured, competency-based feedback on medical students after clinical encounters. Built with Google Vertex AI (Gemini models).
+A conversational AI tool that helps medical school faculty provide structured, competency-based feedback on medical students after clinical encounters. Built with FastAPI, HTMX, Google Vertex AI (Gemini), Google Cloud Firestore, and Google OAuth 2.0.
 
-The application conducts a guided conversation with preceptors (3-5 minutes), then generates two outputs organized by CWRU School of Medicine's core competencies:
-1. **Clerkship Director Summary** - Structured bullets (strengths, areas for improvement, developmental suggestions)
-2. **Student-Facing Narrative** - Constructive, supportive feedback for the student
+The application guides preceptors through a brief (3–5 minute) conversation, then generates two outputs organized by CWRU School of Medicine's core competencies:
+1. **Clerkship Director Summary** — Structured bullets (strengths, areas for improvement, suggestions)
+2. **Student-Facing Narrative** — Constructive, supportive feedback for the student
+
+After completing a session, preceptors are prompted to fill out an optional post-session survey.
 
 ## Common Commands
 
-### Local Development
 ```bash
 # Setup
 python3 -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your GCP_PROJECT_ID, GCP_REGION, and GCP_CREDENTIALS_PATH
+# Edit .env — at minimum set GCP_PROJECT_ID, GCP_REGION, GCP_CREDENTIALS_PATH,
+# OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, JWT_SECRET_KEY
 
-# Run the application
-streamlit run app.py
+# Run locally
+./start-dev.sh
+# or directly:
+uvicorn app.main:app --reload --port 8080
+
+# Run tests
+pytest
+pytest --cov=app          # with coverage
+pytest tests/test_survey.py -v  # specific file
 ```
 
-### Cloud Deployment
 ```bash
-# Deploy to Cloud Run (one command)
+# Deploy to Cloud Run
+./setup_secrets.sh  # one-time Secret Manager setup
 ./deploy.sh
-
-# Manual deployment
-gcloud run deploy preceptor-feedback-bot \
-  --source . \
-  --region us-central1 \
-  --project your-gcp-project-id
 ```
 
 ## Architecture
@@ -44,200 +47,158 @@ gcloud run deploy preceptor-feedback-bot \
 ### Core Components
 
 **Entry Point:**
-- `app.py` - Streamlit UI and session orchestration. All user interactions, conversation state management, and UI flow happen here.
-
-**AI Integration:**
-- `utils/vertex_ai_client.py` - Wrapper around `google-genai` Vertex AI chat. Core functions:
-  - `start_conversation()` - Initialize chat with system prompt
-  - `send_message(user_message)` - Returns `(response_text, contains_feedback)` tuple
-  - `generate_feedback()` - Generate structured summaries after conversation
-  - `refine_feedback(refinement_request)` - Refine generated feedback
-  - `save_conversation_log(student_name)` - Save conversation JSON to logs/ or Cloud Storage
+- `app/main.py` — FastAPI app initialization, middleware registration, route mounting, lifespan handler
 
 **Configuration:**
-- `config.py` - Environment-driven configuration using python-dotenv. All model settings (MODEL_NAME, TEMPERATURE, MAX_OUTPUT_TOKENS), conversation parameters (MAX_TURNS), and deployment settings (DEPLOYMENT_ENV, GCP_PROJECT_ID, LOG_BUCKET) are centralized here.
-- Model display names map in `Config.get_model_display_name()`
+- `app/config.py` — `Settings` class (pydantic_settings). Singleton exposed as `settings`. All model settings (`MODEL_NAME`, `TEMPERATURE`, `MAX_OUTPUT_TOKENS`), conversation parameters (`MAX_TURNS`), OAuth/JWT config, Firestore settings, and deployment flags are centralized here. Key method: `settings.get_model_display_name()`.
+
+**Authentication:**
+- `app/middleware/auth_middleware.py` — JWT validation from `httpOnly` cookies; injects current user into request state
+- `app/api/auth.py` — OAuth 2.0 routes: `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`
+- `app/services/auth_service.py` — PKCE flow, token exchange, JWT generation/validation, domain restriction
+- `app/services/oauth_session_store.py` — Firestore-backed OAuth state store (avoids multi-instance Cloud Run issues with in-memory state)
+
+**AI Integration:**
+- `app/services/vertex_ai_client.py` — Wrapper around `google-genai` SDK. Key methods:
+  - `start_conversation()` → initial greeting string
+  - `send_message(user_message)` → `(response_text, contains_feedback)` tuple
+  - `generate_feedback(student_name)` → structured feedback string
+  - `refine_feedback(refinement_request)` → refined feedback string
+  - `_contains_formal_feedback(text)` → detects premature feedback (see invariant below)
+  - `_call_with_backoff(func, ...)` → exponential backoff for rate limits
+
+**Business Logic:**
+- `app/services/conversation_service.py` — Orchestrates `VertexAIClient` + `FirestoreService`; handles conversation creation, message persistence, turn tracking
+- `app/services/firestore_service.py` — All Firestore CRUD: users, conversations, messages, feedback versions, surveys
+
+**API Routes:**
+- `app/api/conversations.py` — Create, list, get conversations; send messages (via HTMX)
+- `app/api/feedback.py` — Generate feedback, refine feedback, finish session
+- `app/api/survey.py` — Display, submit, and skip post-session survey
+- `app/api/user.py` — Dashboard, user profile
+
+**Data Models:**
+- `app/models/user.py`, `conversation.py`, `feedback.py`, `survey.py` — Pydantic models for all Firestore documents
+
+**Templates:**
+- `app/templates/` — Jinja2 templates. `base.html` is the layout. HTMX is used for all dynamic interactions (no page reloads for chat or feedback generation).
+- `app/templates/components/` — Reusable partials: `message.html`, `conversation_card.html`, `feedback_content.html`
 
 **Prompting:**
-- `prompts/system_prompt.md` - Canonical system instruction that controls conversational style, probing behavior, and competency framework. Contains the critical rule: do NOT generate formal feedback during conversation phase (only after explicit request).
-
-**Logging:**
-- `utils/app_logger.py` - Global singleton logger. Use throughout the app for telemetry:
-  ```python
-  from utils import logger
-  logger.info("Message", student=student_name)
-  logger.conversation_started(student_name=name, model=model)
-  logger.feedback_generated(student_name=name)
-  ```
+- `prompts/system_prompt.md` — Canonical system instruction. Controls conversational style, probing behavior, competency framework, and the critical rule: **do NOT generate formal feedback during the conversation phase**.
 
 ### Critical Behavior Invariant: Premature Feedback Detection
 
-**The conversation phase must NOT produce final feedback until `generate_feedback()` is explicitly called.**
+The conversation phase must NOT produce final feedback until `generate_feedback()` is explicitly called.
 
-- System prompt in `prompts/system_prompt.md` instructs model to only gather information during conversation
-- `utils/vertex_ai_client.py::_contains_formal_feedback()` detects if model ignores instructions and generates feedback early
-- Detection checks for markers like `**Clerkship Director Summary`, `**Student-Facing Narrative`, `**Strengths**`, etc.
-- `send_message()` returns `(response_text, contains_feedback)` tuple - UI treats `contains_feedback=True` as premature feedback flag
-- If markers change, update the `feedback_markers` array in `_contains_formal_feedback()`
-
-### Session State Management
-
-Session state in `app.py` tracks:
-- `client` - VertexAIClient instance
-- `conversation_started` - Whether conversation has begun
-- `messages` - Conversation history for display
-- `feedback_generated` - Whether feedback has been generated (blocks chat input when true)
-- `current_feedback` - Generated feedback text
-- `student_name` - Student name (required before starting conversation)
-- `show_survey` - Whether to show post-session survey
-- `feedback_timestamp` - Timestamp for feedback file (persists across refinements)
+- `app/services/vertex_ai_client.py::_contains_formal_feedback()` detects if the model ignores instructions and generates feedback early
+- Checks for markers like `**Clerkship Director Summary`, `**Student-Facing Narrative`, `**Strengths**`, etc.
+- `send_message()` returns `(response_text, contains_feedback)` — the API layer treats `contains_feedback=True` as a warning signal
+- **If output format markers change, update `feedback_markers` in `_contains_formal_feedback()`**
 
 ### Conversation Workflow
 
-1. User enters student name (required)
-2. Click "Start New Conversation" → calls `VertexAIClient.start_conversation()`
-3. Model acknowledges student name in first response
-4. Preceptor and AI exchange messages (max MAX_TURNS)
-5. Click "Generate Feedback" → calls `VertexAIClient.generate_feedback()`
-6. Auto-saves conversation log and feedback draft
-7. Optional: refine feedback with text input
-8. Click "Finish, Save, and Clear" → saves final versions, shows survey
-9. Survey submission resets session state
+1. User authenticates via Google OAuth
+2. Dashboard: start new conversation by entering student name
+3. `ConversationService.create_conversation()` → creates Firestore record + initializes `VertexAIClient` + fetches initial greeting
+4. Preceptor and AI exchange messages (HTMX; max `MAX_TURNS`)
+5. "Generate Feedback" → `ConversationService.generate_feedback()` → Firestore `feedback` subcollection
+6. Optional: refine feedback with free-text input
+7. "Finish" → marks conversation complete, redirects to survey
+8. Survey: two required multiple-choice questions + optional open text + optional contact info; can be skipped entirely
 
-### Logging and Persistence
+### Firestore Data Model
 
-**Local Development:**
-- Conversation logs: `./logs/conversation_{timestamp}_{student_name}.json`
-- Feedback files: `./output/feedback_{timestamp}_{student_name}.txt`
-- Survey responses: `./output/survey_{timestamp}.json`
-- Application logs: `./logs/app_{date}.log`
+Collections:
+- `users/{user_id}` — email, name, domain, last login
+- `conversations/{conversation_id}` — user_id, student_name, model, status, messages[], turn_count, timestamps
+- `feedback/{feedback_id}` — conversation_id, user_id, content, versions[], is_final
+- `surveys/{survey_id}` — conversation_id, user_id, student_name, helpfulness_rating, likelihood_rating, comments, contact_name, contact_email, skipped, submitted_at
+- `oauth_sessions/{session_id}` — short-lived OAuth PKCE state
 
-**Cloud Deployment:**
-- All logs/files saved to Cloud Storage bucket specified by LOG_BUCKET
-- Uses Application Default Credentials (Cloud Run service account)
-- Path format: `gs://{LOG_BUCKET}/{filename}`
+### Session / State Management
+
+There is no in-process session state. All state is persisted in Firestore and retrieved per-request. JWT cookie identifies the user. Conversation state (messages, turn count, status) lives in the `conversations` collection.
 
 ### Credentials Handling
 
-**GCP Service Account:**
-- **Local:** Set `GCP_CREDENTIALS_PATH` in `.env` to point to service account JSON. The app sets `GOOGLE_APPLICATION_CREDENTIALS` environment variable.
-- **Cloud:** Set `DEPLOYMENT_ENV=cloud`. No credentials path needed - uses Application Default Credentials automatically.
+**Local:** Set `GCP_CREDENTIALS_PATH` in `.env` to a service account JSON file. `VertexAIClient` sets `GOOGLE_APPLICATION_CREDENTIALS` automatically.
 
-**Application Secrets (OAuth, JWT):**
-- **Local:** Set in `.env` file (see `.env.example` for template)
-- **Cloud:** Managed via Google Cloud Secret Manager
-  - Run `./setup_secrets.sh` to configure secrets (one-time setup)
-  - Secrets automatically injected as environment variables by Cloud Run
-  - No manual configuration needed after initial setup
-  - See `DEPLOYMENT.md` for details
+**Cloud (Cloud Run):** Set `DEPLOYMENT_ENV=cloud`. Uses Application Default Credentials — no key file needed. Sensitive config (JWT secret, OAuth client ID/secret) is managed via **Secret Manager** (run `./setup_secrets.sh` once).
 
 ## Common Modification Patterns
 
 ### Change conversational behavior, questions, or tone
-Edit `prompts/system_prompt.md`. Keep the "only gather information" instruction intact unless also updating UI flow.
+Edit `prompts/system_prompt.md`. Keep the "only gather information" instruction intact unless also updating the feedback detection logic.
 
 ### Switch model
-Update `MODEL_NAME` in `.env` or environment variables. If needed, add display name mapping in `config.py::get_model_display_name()`.
+Update `MODEL_NAME` in `.env` or Cloud Run environment variables. Add a display name mapping in `app/config.py::get_model_display_name()` if needed.
 
 ### Modify premature feedback detection
-Update `feedback_markers` array in `utils/vertex_ai_client.py::_contains_formal_feedback()`.
+Update `feedback_markers` list in `app/services/vertex_ai_client.py::_contains_formal_feedback()`.
 
-### Add logging
-Use the singleton logger from `utils/app_logger.py`:
-```python
-from utils import logger
-logger.info("Event", student=student_name, extra_field=value)
-```
-Available methods: `info()`, `warning()`, `error()`, `debug()`, plus specialized helpers like `conversation_started()`, `feedback_generated()`, etc.
+### Add a new survey question
+1. `app/models/survey.py` — add enum or field to `SurveyBase`
+2. `app/templates/survey.html` — add form element
+3. `app/api/survey.py` — add `Form(...)` param to `submit_survey`, update `SurveyCreate(...)` call, pass new context to template if needed
+4. `app/services/firestore_service.py` — add field to `survey_dict` in `create_survey()`
+5. `tests/conftest.py` — update mock `create_survey()`
+6. `tests/test_survey.py` and `tests/test_authorization.py` — update payloads and assertions
+
+### Add a new API route
+Add to `app/api/`, register the router in `app/main.py`.
+
+### Add a new Firestore operation
+Add method to `app/services/firestore_service.py`. Use `async def` and `FieldFilter` for queries.
 
 ### Modify UI flow
-Update session state variables and button callbacks in `app.py`. The conversation flow is controlled by boolean flags (`conversation_started`, `feedback_generated`, `show_survey`).
+Edit the relevant Jinja2 template and its HTMX attributes. FastAPI route handlers return `TemplateResponse` for full pages or HTML fragments for HTMX partial updates.
+
+## Testing
+
+```bash
+pytest                    # all tests
+pytest --cov=app          # with coverage (configured in pytest.ini; threshold 70%)
+pytest -m survey          # by marker
+pytest tests/test_survey.py tests/test_authorization.py -v
+```
+
+Tests use a `MockFirestoreService` in `tests/conftest.py` — no real Firestore connection needed. GCP credentials are not required to run the test suite.
+
+Markers: `integration`, `unit`, `auth`, `survey` (defined in `pytest.ini`).
 
 ## Safeguards and Privacy
 
 - System prompt reminds preceptors not to include patient identifiers (PHI)
 - All feedback treated as FERPA-protected educational records
-- Student and preceptor names preserved in all outputs
-- Service account credentials never committed to git (in `.gitignore`)
-- Logs contain full conversation transcripts for quality improvement and debugging
-
-## Integration Points
-
-**Vertex AI:** Uses `google-genai` SDK (pinned in requirements.txt) with Gemini models. Runtime behavior depends on `Config.MODEL_NAME` and GCP credentials.
-
-**Cloud Storage:** Used for logs and feedback files in cloud deployment. Requires Storage Object Creator role for Cloud Run service account.
-
-**Streamlit:** UI framework. Session state persists across reruns. Chat input pins to bottom of page.
-
-## Conversation Logs Schema
-
-Conversation logs (JSON) contain:
-```json
-{
-  "metadata": {
-    "timestamp": "ISO 8601",
-    "model": "model-name",
-    "student_name": "name",
-    "total_turns": 10,
-    "project_id": "gcp-project",
-    "environment": "local|cloud"
-  },
-  "conversation": [
-    {
-      "timestamp": "ISO 8601",
-      "turn": 1,
-      "role": "user|assistant|system",
-      "content": "message text",
-      "response_time_ms": 1234.56
-    }
-  ]
-}
-```
-
-Special turn markers: `"turn": "feedback_generation"`, `"turn": "feedback_refinement"` (not numbered conversation turns).
-
-## Error Handling
-
-**Rate Limits (429):** `_call_with_backoff()` in `VertexAIClient` implements exponential backoff with jitter (~2s, ~4s, ~8s, ~16s, ~32s) with max 5 retries for up to ~60 seconds total wait time.
-
-**Empty Responses:** Logged and raised as `ValueError("No response received from model")`.
-
-**Logging Failures:** Cloud Storage logging failures fall back to stderr.
+- Firestore security rules enforce per-user data access at the database level
+- `OAUTH_DOMAIN_RESTRICTION=true` + `OAUTH_ALLOWED_DOMAINS` limit logins to trusted email domains (e.g., `case.edu`)
+- Service account JSON files are `.gitignore`d — never commit credentials
 
 ## Critical Configuration Requirements
 
-### Avoiding RESOURCE_EXHAUSTED Errors
+### Avoiding RESOURCE_EXHAUSTED (429) Errors
 
-**Region Configuration:**
-- **MUST use a specific region** (e.g., `us-central1`, `us-east4`, `europe-west4`)
-- **NEVER use `GCP_REGION=global`** - causes unpredictable routing and rate limit issues
-- Quota limits are region-specific; "global" may use shared/restricted quota pools
-- Ensure Cloud Run and `.env` both specify the same region
+- **MUST use a specific region** — e.g., `GCP_REGION=us-central1`. **Never `global`** — causes quota routing issues
+- **Use stable model versions** — e.g., `gemini-2.5-flash`. Avoid `-exp` suffix models (2–10 RPM vs 60+ RPM)
+- `_call_with_backoff()` retries up to 5× with exponential backoff + jitter (~2s → ~32s, max ~60s total)
 
-**Model Selection:**
-- **Use stable model versions** (e.g., `gemini-2.5-flash`)
-- **Avoid experimental models** (suffix `-exp`) unless necessary
-- Experimental models have drastically lower rate limits (2-10 RPM vs 60+ RPM)
-- Can trigger 429 errors even with very low usage (5-6 calls in a few minutes)
-
-**Example of correct configuration:**
+### Example correct `.env`
 ```bash
 GCP_REGION=us-central1          # NOT "global"
-MODEL_NAME=gemini-2.5-flash # NOT "gemini-2.0-flash-exp"
+MODEL_NAME=gemini-2.5-flash     # NOT "gemini-2.0-flash-exp"
 ```
 
 ## Deployment Environments
 
 **Local (`DEPLOYMENT_ENV=local`):**
-- Reads `.env` file
-- Requires `GCP_CREDENTIALS_PATH`
-- Logs to `./logs/` directory
-- Output to `./output/` directory
+- Reads `.env` file (python-dotenv)
+- Requires `GCP_CREDENTIALS_PATH` pointing to service account JSON
+- OAuth secrets in `.env`
 
 **Cloud (`DEPLOYMENT_ENV=cloud`):**
-- Environment variables set in Cloud Run
-- Secrets managed via Google Cloud Secret Manager (OAuth, JWT)
-- Uses Application Default Credentials (no JSON key)
-- Logs to Cloud Storage bucket specified by `LOG_BUCKET`
-- `CLOUD_RUN_TIMEOUT` controls session timeout (default 600s / 10 min)
-- Run `./setup_secrets.sh` before first deployment
+- Environment variables set in Cloud Run service definition (`deploy.sh`)
+- OAuth + JWT secrets injected from Secret Manager (configured by `setup_secrets.sh`)
+- Uses Application Default Credentials (Cloud Run service account)
+- `CLOUD_RUN_TIMEOUT` controls request timeout (default 600s)
+- `LOG_BUCKET` enables Cloud Storage logging

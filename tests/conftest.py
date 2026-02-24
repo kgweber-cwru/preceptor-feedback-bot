@@ -31,7 +31,7 @@ from app.services.firestore_service import FirestoreService
 from app.models.user import User
 from app.models.conversation import Conversation, ConversationStatus
 from app.models.feedback import Feedback, FeedbackVersion
-from app.models.survey import Survey, ToolRating
+from app.models.survey import Survey, HelpfulnessRating, LikelihoodRating
 
 
 # ===== Mock Firestore Service =====
@@ -228,9 +228,11 @@ class MockFirestoreService:
             conversation_id=conversation_id,
             user_id=user_id,
             student_name=student_name,
-            preceptor_name=survey_data.preceptor_name,
-            tool_rating=survey_data.tool_rating,
+            helpfulness_rating=survey_data.helpfulness_rating,
+            likelihood_rating=survey_data.likelihood_rating,
             comments=survey_data.comments,
+            contact_name=survey_data.contact_name,
+            contact_email=survey_data.contact_email,
             submitted_at=datetime.utcnow(),
             skipped=skipped,
         )

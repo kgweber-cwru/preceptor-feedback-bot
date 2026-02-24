@@ -219,7 +219,7 @@ GCP_CREDENTIALS_PATH=./meded-gcp-sandbox-90054d0b3d2d.json
 FIRESTORE_DATABASE=(default)
 
 # Model
-MODEL_NAME=gemini-2.0-flash-001  # NOT experimental versions
+MODEL_NAME=gemini-2.5-flash  # NOT experimental versions
 TEMPERATURE=0.7
 MAX_OUTPUT_TOKENS=8192
 

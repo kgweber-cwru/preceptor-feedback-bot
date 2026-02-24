@@ -1,6 +1,6 @@
-# Deployment Guide - FastAPI Version
+# Deployment Guide
 
-This guide covers deploying the FastAPI version of the Preceptor Feedback Bot to Google Cloud Run.
+This guide covers deploying the Preceptor Feedback Bot to Google Cloud Run.
 
 ## Prerequisites
 
@@ -12,7 +12,8 @@ This guide covers deploying the FastAPI version of the Preceptor Feedback Bot to
      cloudbuild.googleapis.com \
      firestore.googleapis.com \
      aiplatform.googleapis.com \
-     storage.googleapis.com
+     storage.googleapis.com \
+     secretmanager.googleapis.com
    ```
 
 ## One-Time Setup
@@ -243,6 +244,8 @@ gsutil iam ch serviceAccount:${SERVICE_ACCOUNT}:objectCreator \
 - [ ] Feedback generation works
 - [ ] Feedback refinement works
 - [ ] Dashboard loads past conversations
+- [ ] Survey appears after finishing a session
+- [ ] Survey submission and skip both work
 - [ ] Firestore indexes are active (not building)
 - [ ] Logs are being written to Cloud Storage
 
@@ -318,7 +321,7 @@ Then run:
 
 ```bash
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8080
+./start-dev.sh
 ```
 
 Access at: http://localhost:8080
