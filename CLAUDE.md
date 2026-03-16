@@ -62,8 +62,9 @@ pytest tests/test_survey.py -v  # specific file
 - `app/services/vertex_ai_client.py` — Wrapper around `google-genai` SDK. Key methods:
   - `start_conversation()` → initial greeting string
   - `send_message(user_message)` → `(response_text, contains_feedback)` tuple
-  - `generate_feedback(student_name)` → structured feedback string
-  - `refine_feedback(refinement_request)` → refined feedback string
+  - `generate_feedback(student_name)` → structured feedback string; calls `_fix_markdown_formatting()` on the result
+  - `refine_feedback(refinement_request)` → refined feedback string; also calls `_fix_markdown_formatting()`
+  - `_fix_markdown_formatting(text)` → post-processes LLM output: converts definition-list syntax (`Term\n: text`) into proper `* **Term**: text` bullets, handles header-only bullets followed by sub-items (`Strengths\n:` → `* **Strengths**:` with nested sub-bullets), and ensures blank lines after `###` headings
   - `_contains_formal_feedback(text)` → detects premature feedback (see invariant below)
   - `_call_with_backoff(func, ...)` → exponential backoff for rate limits
 
@@ -76,13 +77,24 @@ pytest tests/test_survey.py -v  # specific file
 - `app/api/feedback.py` — Generate feedback, refine feedback, finish session
 - `app/api/survey.py` — Display, submit, and skip post-session survey
 - `app/api/user.py` — Dashboard, user profile
+- `app/api/dev.py` — Dev-only routes (registered only when `settings.DEBUG=True`). `GET /dev/quick-test` creates a pre-seeded 5-turn conversation for "Alex Johnson (Quick Test)" covering Patient Care, Communication, Knowledge, Professionalism, and an area for improvement, then redirects to the conversation page ready to generate feedback. Returns 404 when `DEPLOYMENT_ENV != "local"`.
 
 **Data Models:**
 - `app/models/user.py`, `conversation.py`, `feedback.py`, `survey.py` — Pydantic models for all Firestore documents
 
 **Templates:**
-- `app/templates/` — Jinja2 templates. `base.html` is the layout. HTMX is used for all dynamic interactions (no page reloads for chat or feedback generation).
+- `app/templates/` — Jinja2 templates. `base.html` is the layout (includes stethoscope emoji favicon via inline SVG data URI). HTMX is used for all dynamic interactions (no page reloads for chat or feedback generation).
 - `app/templates/components/` — Reusable partials: `message.html`, `conversation_card.html`, `feedback_content.html`
+  - `feedback_content.html` CSS styles `h3` headings (with border-bottom) and nested `ul ul` for competency sub-bullets under Strengths.
+
+**Markdown Rendering:**
+- `app/utils/markdown.py` — Custom Markdown-to-HTML converter (`markdown_to_html()`). Handles:
+  - `###`/`##`/`#` headings → `<h3>`/`<h2>`/`<h1>`
+  - Top-level `*`/`-` bullets → `<ul><li>` 
+  - Indented sub-bullets (`  * text`) → nested `<ul><li>`
+  - `**bold**` → `<strong>`
+  - Definition-list syntax auto-correction via `_fix_definition_lists()` (same logic as `vertex_ai_client._fix_markdown_formatting()` — the markdown renderer is the canonical fixup point for stored/cached feedback; the vertex client method catches it at generation time)
+  - Paragraphs wrapped in `<p>` tags
 
 **Prompting:**
 - `prompts/system_prompt.md` — Canonical system instruction. Controls conversational style, probing behavior, competency framework, and the critical rule: **do NOT generate formal feedback during the conversation phase**.
@@ -137,6 +149,11 @@ Update `MODEL_NAME` in `.env` or Cloud Run environment variables. Add a display 
 ### Modify premature feedback detection
 Update `feedback_markers` list in `app/services/vertex_ai_client.py::_contains_formal_feedback()`.
 
+### Modify feedback Markdown rendering
+Edit `app/utils/markdown.py::markdown_to_html()`. This is the single choke-point all feedback content passes through for display — including feedback retrieved from Firestore. `_fix_definition_lists()` in the same file auto-corrects LLM definition-list output regardless of when the feedback was generated.
+
+If the output format changes (e.g. new heading levels, different bullet nesting), also update `_fix_markdown_formatting()` in `app/services/vertex_ai_client.py` and the CSS in `app/templates/components/feedback_content.html`.
+
 ### Add a new survey question
 1. `app/models/survey.py` — add enum or field to `SurveyBase`
 2. `app/templates/survey.html` — add form element
@@ -188,6 +205,15 @@ Markers: `integration`, `unit`, `auth`, `survey` (defined in `pytest.ini`).
 GCP_REGION=us-central1          # NOT "global"
 MODEL_NAME=gemini-2.5-flash     # NOT "gemini-2.0-flash-exp"
 ```
+
+## Dev Quick-Test Feature
+
+When `DEBUG=true` (local dev), the dashboard shows an amber **⚡ Quick Test** button. Clicking it hits `GET /dev/quick-test`, which:
+1. Creates a Firestore conversation for student "Alex Johnson (Quick Test)"
+2. Seeds 11 pre-written messages (5 user, 5 assistant turns + greeting) covering Patient Care, Communication, Knowledge for Practice, Professionalism, and one area for improvement (oral presentations)
+3. Redirects to `/conversations/{id}` — preceptor lands directly on the conversation page and can immediately click "Generate Feedback"
+
+This avoids having to invent patient scenarios for every formatting/UX test iteration. The endpoint returns 404 if `DEPLOYMENT_ENV != "local"`.
 
 ## Deployment Environments
 

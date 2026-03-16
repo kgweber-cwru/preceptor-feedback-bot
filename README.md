@@ -100,7 +100,8 @@ preceptor-feedback-bot/
 │   │   ├── conversations.py         # Conversation management
 │   │   ├── feedback.py              # Feedback generation
 │   │   ├── survey.py                # Post-session survey
-│   │   └── user.py                  # Dashboard & user profile
+│   │   ├── user.py                  # Dashboard & user profile
+│   │   └── dev.py                   # Dev-only: quick-test endpoint (DEBUG mode)
 │   ├── services/                    # Business logic
 │   │   ├── auth_service.py          # OAuth & JWT handling
 │   │   ├── firestore_service.py     # Database operations
@@ -122,7 +123,7 @@ preceptor-feedback-bot/
 │   │   └── components/
 │   ├── static/                      # CSS, JS, images
 │   └── utils/                       # Utilities
-│       ├── markdown.py
+│       ├── markdown.py              # Markdown→HTML renderer (handles headings, bullets, definition-list fix)
 │       └── time_formatting.py
 ├── prompts/
 │   └── system_prompt.md            # AI system instructions
@@ -309,6 +310,10 @@ pytest --cov=app
 # Run specific test file
 pytest tests/test_survey.py -v
 ```
+
+### Dev Quick-Test (skip inventing conversations)
+
+When `DEBUG=true`, an amber **⚡ Quick Test** button appears on the dashboard. It creates a pre-seeded conversation covering multiple competencies and drops you straight onto the feedback generation page — useful for iterating on feedback formatting without running through a full conversation each time.
 
 ```bash
 # Run development server with auto-reload

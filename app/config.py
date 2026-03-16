@@ -103,7 +103,7 @@ class Settings(BaseSettings):
 
     # ===== FastAPI Settings =====
     APP_NAME: str = "Preceptor Feedback Bot"
-    APP_VERSION: str = "2.0.1"
+    APP_VERSION: str = "2.0.2"
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 
     # CORS Settings
