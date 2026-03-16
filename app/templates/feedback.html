@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Feedback: {{ conversation.student_name }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <!-- Back button -->
+    <div class="mb-4">
+        <a href="/conversations/{{ conversation.conversation_id }}" class="inline-flex items-center text-blue-600 hover:text-blue-700">
+            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Conversation
+        </a>
+    </div>
+
+    <!-- Header -->
+    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Generated Feedback</h1>
+                <p class="text-gray-600 mt-1">Student: <span class="font-medium">{{ conversation.student_name }}</span></p>
+            </div>
+            <div class="text-right">
+                <p class="text-sm text-gray-500">Version {{ feedback.current_version }}</p>
+                <p class="text-xs text-gray-400 mt-1">{{ feedback.generated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Content -->
+    <div id="feedback-container" class="bg-white rounded-lg shadow-sm p-6 mb-6">
+        {% include 'components/feedback_content.html' %}
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <h2 class="text-lg font-semibold mb-4">Actions</h2>
+
+        <!-- Refinement Form -->
+        <div class="mb-6">
+            <label for="refinement_request" class="block text-sm font-medium text-gray-700 mb-2">
+                (Optional) Refine Feedback: If you'd like to make adjustments to the feedback, enter your refinement request below and click "Refine Feedback". The AI will update the feedback based on your input.
+            </label>
+            <form
+                hx-post="/conversations/{{ conversation.conversation_id }}/feedback/refine"
+                hx-ext="json-enc"
+                hx-target="#feedback-container"
+                hx-swap="innerHTML"
+                hx-indicator="#refining-spinner"
+                class="space-y-3">
+
+                <textarea
+                    id="refinement_request"
+                    name="refinement_request"
+                    rows="3"
+                    placeholder="E.g., 'Can you add more emphasis on communication skills?' or 'Make the tone more constructive'"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                ></textarea>
+
+                <button
+                    type="submit"
+                    class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium">
+                    ✨ Refine Feedback
+                    <span id="refining-spinner" class="htmx-indicator ml-2">...</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Download and Finish Buttons -->
+        <div class="flex gap-3 flex-wrap">
+                        <form
+                hx-post="/conversations/{{ conversation.conversation_id }}/finish"
+                class="inline">
+                <button
+                    type="submit"
+                    class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                    ✅ Finish & Give Tool Feedback
+                </button>
+            </form>
+
+            <a
+                href="/conversations/{{ conversation.conversation_id }}/feedback/download"
+                class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium inline-block">
+                📥 Download as Text File
+            </a>
+
+            <a
+                href="/conversations/{{ conversation.conversation_id }}"
+                class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium inline-block">
+                ← Back to Conversation
+            </a>
+        </div>
+    </div>
+
+    <!-- Help Text -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p class="text-sm text-blue-800">
+            💡 <strong>Tip:</strong> You can refine the feedback multiple times. Each refinement creates a new version while preserving the previous ones.
+            The latest version is always displayed and available for download.
+        </p>
+    </div>
+</div>
+{% endblock %}

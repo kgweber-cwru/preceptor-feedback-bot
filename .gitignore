@@ -11,6 +11,7 @@ env/
 
 # Environment variables
 .env
+.env.deployed
 
 # GCP credentials
 *.json
@@ -23,9 +24,6 @@ output/
 # Logs
 logs/
 *.log
-
-# Streamlit
-.streamlit/
 
 # IDEs
 .vscode/

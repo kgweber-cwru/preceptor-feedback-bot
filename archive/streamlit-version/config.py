@@ -83,7 +83,7 @@ class Config:
     def get_model_display_name(cls):
         """Get human-readable model name"""
         model_map = {
-            "gemini-2.0-flash-001": "Gemini 2.0 Flash",
+            "gemini-2.5-flash": "Gemini 2.0 Flash",
             "gemini-1.5-pro": "Gemini 1.5 Pro",
             "gemini-1.5-flash": "Gemini 1.5 Flash",
             # Claude models - for future use

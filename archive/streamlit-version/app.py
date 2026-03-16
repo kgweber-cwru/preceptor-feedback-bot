@@ -538,26 +538,35 @@ def main():
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        # Chat input and Generate Feedback button (only show if feedback not yet generated)
+        # Action bar above chat input (always visible on mobile)
         if not st.session_state.feedback_generated:
+            # Visual separator
+            st.markdown("---")
+
+            # Create action bar with progress + button
+            col1, col2 = st.columns([1, 2])
+
+            with col1:
+                if st.session_state.client:
+                    st.caption("**Conversation Progress**")
+                    st.info(f"**{st.session_state.client.turn_count}** of {Config.MAX_TURNS} turns")
+
+            with col2:
+                st.caption("**Ready to continue?**")
+                if st.button(
+                    "📝 Generate Feedback",
+                    type="primary",
+                    use_container_width=True,
+                    key="generate_feedback_button"
+                ):
+                    generate_feedback()
+                    st.rerun()
+
             # Chat input appears at bottom (pinned by Streamlit)
             user_input = st.chat_input("Type your response here...")
             if user_input:
                 send_message(user_input)
                 st.rerun()
-
-            # Generate Feedback button - rendered after chat but appears above due to chat_input pinning
-            st.markdown("")  # Small spacing
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col2:
-                if st.button(
-                    "📝 Generate Feedback",
-                    type="primary",
-                    use_container_width=True,
-                    help="Ready to generate feedback? Click here when conversation is complete",
-                ):
-                    generate_feedback()
-                    st.rerun()
 
         # Feedback display and refinement
         if st.session_state.feedback_generated:

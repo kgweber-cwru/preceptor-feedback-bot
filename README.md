@@ -1,37 +1,40 @@
 # Preceptor Feedback Bot
 
-A conversational AI tool that helps medical school faculty provide structured, competency-based feedback on medical students after clinical encounters. Built with Streamlit and Google Vertex AI (Gemini models).
+A conversational AI tool that helps medical school faculty provide structured, competency-based feedback on medical students after clinical encounters. Built with FastAPI, Google Vertex AI (Gemini models), Google Cloud Firestore, and Google OAuth.
 
 ## Overview
 
 This application guides preceptors through a brief (3-5 minute) conversation to gather observations about a student's clinical performance. It then generates two structured outputs:
 
-1. **Clerkship Director Summary** - Organized by strengths, areas for improvement, and developmental suggestions
+1. **Structured Summary** - Organized by strengths, areas for improvement, and developmental suggestions
 2. **Student-Facing Narrative** - Constructive, supportive feedback framed as opportunities for growth
 
 All feedback is organized according to [CWRU School of Medicine's core competencies](https://case.edu/medicine/curriculum/curriculum-overview/competencies-and-education-program-objectives):
 - Professionalism
-- Teamwork and Interprofessional Collaboration
+- Teamwork and Interprofessonal Collaboration
 - Reflective Practice
 - Interpersonal and Communication Skills
 - Knowledge for Practice
 - Patient Care
-- (omitted from the prompt) Research and Scholarship
-- (also omitted) Personal and Professional Development
 - Systems-based Practice
 
 ## Architecture
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│  Streamlit UI (app.py)                                     │
-│  └─> VertexAIClient (utils/vertex_ai_client.py)           │
-│       └─> Google Vertex AI (Gemini models)                │
-└────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  FastAPI + HTMX UI (app/)                                   │
+│  ├─ Authentication (Google OAuth 2.0 + JWT)                 │
+│  ├─ API Routes (auth, conversations, feedback, survey, user) │
+│  └─ Services                                                │
+│      ├─ VertexAIClient → Google Vertex AI (Gemini)          │
+│      ├─ ConversationService                                 │
+│      ├─ FirestoreService → Google Cloud Firestore           │
+│      └─ OAuthSessionStore → Google Cloud Firestore          │
+└─────────────────────────────────────────────────────────────┘
          │
-         └─> Logs & Feedback Output
-              - Local: ./logs/ and ./output/
-              - Cloud: Cloud Storage bucket
+         ├─> Firestore: Conversations, Feedback, Users, Surveys
+         ├─> Secret Manager: OAuth & JWT secrets
+         └─> Cloud Storage: Logs & archives
 ```
 
 ## Prerequisites
@@ -39,36 +42,112 @@ All feedback is organized according to [CWRU School of Medicine's core competenc
 - **Python 3.12+** (tested with 3.12 and 3.13)
 - **Google Cloud Platform account** with:
   - Vertex AI API enabled
-  - Service account with Vertex AI User role (for local development)
-  - Cloud Storage bucket (for cloud deployment)
+  - Firestore enabled
+  - Secret Manager API enabled
+  - Cloud Storage enabled
+  - Service account with appropriate roles
+- **Google OAuth 2.0 Credentials** (for authentication)
 
-## Local Development Setup
+## Quick Start
 
-### 1. Clone and Install Dependencies
+### 1. Clone and Install
 
 ```bash
-# Clone the repository
 git clone <repository-url>
 cd preceptor-feedback-bot
-
-# Create virtual environment
 python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment Variables
+### 2. Configure Local Development
 
 ```bash
-# Copy the example environment file
 cp .env.example .env
-
-# Edit .env with your settings
+# Edit .env with your settings (see below)
 ```
 
-Required `.env` variables for local development:
+### 3. Run Locally
+
+```bash
+./start-dev.sh
+```
+
+This script activates the virtual environment, validates your `.env`, and starts the server with auto-reload.
+Access at: http://localhost:8080
+
+Alternatively, run directly:
+```bash
+uvicorn app.main:app --reload --port 8080
+```
+
+## Full Deployment Guide
+
+For complete deployment instructions including GCP setup, OAuth configuration, Firestore indexes, and Secret Manager, see **[DEPLOYMENT.md](DEPLOYMENT.md)**.
+
+## Project Structure
+
+```
+preceptor-feedback-bot/
+├── app/                              # Main application
+│   ├── main.py                      # FastAPI app entry point
+│   ├── config.py                    # Configuration management
+│   ├── dependencies.py              # FastAPI dependencies
+│   ├── middleware/
+│   │   └── auth_middleware.py       # JWT authentication
+│   ├── api/                         # API route handlers
+│   │   ├── auth.py                  # OAuth login/logout
+│   │   ├── conversations.py         # Conversation management
+│   │   ├── feedback.py              # Feedback generation
+│   │   ├── survey.py                # Post-session survey
+│   │   ├── user.py                  # Dashboard & user profile
+│   │   └── dev.py                   # Dev-only: quick-test endpoint (DEBUG mode)
+│   ├── services/                    # Business logic
+│   │   ├── auth_service.py          # OAuth & JWT handling
+│   │   ├── firestore_service.py     # Database operations
+│   │   ├── conversation_service.py  # Conversation orchestration
+│   │   ├── oauth_session_store.py   # Firestore-backed OAuth state
+│   │   └── vertex_ai_client.py      # Vertex AI wrapper
+│   ├── models/                      # Pydantic data models
+│   │   ├── user.py
+│   │   ├── conversation.py
+│   │   ├── feedback.py
+│   │   └── survey.py
+│   ├── templates/                   # Jinja2 HTML templates
+│   │   ├── base.html
+│   │   ├── login.html
+│   │   ├── dashboard.html
+│   │   ├── conversation.html
+│   │   ├── feedback.html
+│   │   ├── survey.html
+│   │   └── components/
+│   ├── static/                      # CSS, JS, images
+│   └── utils/                       # Utilities
+│       ├── markdown.py              # Markdown→HTML renderer (handles headings, bullets, definition-list fix)
+│       └── time_formatting.py
+├── prompts/
+│   └── system_prompt.md            # AI system instructions
+├── tests/                           # Test suite
+├── archive/                         # Historical files and migration docs
+├── .env.example                     # Environment variable template
+├── requirements.txt                 # Python dependencies
+├── pytest.ini                       # Test configuration
+├── Dockerfile                       # Container definition
+├── start-dev.sh                     # Local development startup script
+├── deploy.sh                        # Quick deployment script
+├── setup_secrets.sh                 # Secret Manager setup
+├── cloudbuild.yaml                  # Cloud Build configuration
+├── firestore.indexes.json           # Firestore index definitions
+├── firestore.rules                  # Firestore security rules
+├── DEPLOYMENT.md                    # Complete deployment guide
+└── CLAUDE.md                        # Architecture & development guide
+```
+
+## Local Development Configuration
+
+### Required Environment Variables
+
+Create a `.env` file with these values:
 
 ```bash
 # Deployment
@@ -77,139 +156,97 @@ DEPLOYMENT_ENV=local
 # GCP Configuration
 GCP_PROJECT_ID=your-gcp-project-id
 GCP_REGION=us-central1
-GCP_CREDENTIALS_PATH=./path-to-your-service-account-key.json
+GCP_CREDENTIALS_PATH=./path-to-service-account-key.json
 
 # Model Configuration
-MODEL_NAME=gemini-2.0-flash-exp
+MODEL_NAME=gemini-2.5-flash
 TEMPERATURE=0.7
 MAX_OUTPUT_TOKENS=2048
 
 # Conversation Settings
 MAX_TURNS=10
 
-# Logging
+# Local Logging
 LOG_TO_FILE=true
 LOG_DIRECTORY=./logs
+LOG_LEVEL=INFO
+
+# Firestore
+FIRESTORE_DATABASE=(default)
+
+# OAuth (get from Google Cloud Console)
+OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
+OAUTH_CLIENT_SECRET=your-client-secret
+OAUTH_REDIRECT_URI=http://localhost:8080/auth/callback
+OAUTH_DOMAIN_RESTRICTION=false  # Set to true for production
+
+# JWT (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
+JWT_SECRET_KEY=your-secure-random-key
+JWT_ALGORITHM=HS256
+JWT_EXPIRATION_HOURS=168
+
+# Debug
+DEBUG=true
 ```
 
-### 3. Get GCP Service Account Credentials
+## Cloud Deployment
 
-1. Go to [GCP Console → IAM & Admin → Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
-2. Create a service account or select existing one
-3. Grant **Vertex AI User** role
-4. Create and download a JSON key
-5. Save the JSON file in your project directory and update `GCP_CREDENTIALS_PATH` in `.env`
-
-### 4. Run the Application
+### Option 1: Quick Deploy (Recommended)
 
 ```bash
-streamlit run app.py
-```
+# First time: Set up secrets in Secret Manager
+./setup_secrets.sh
 
-The app will open in your browser at `http://localhost:8501`
-
-## Cloud Deployment (Google Cloud Run)
-
-### Prerequisites
-
-1. Install [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)
-2. Authenticate:
-   ```bash
-   gcloud auth login
-   gcloud config set project your-gcp-project-id
-   ```
-
-### One-Command Deployment
-
-```bash
+# Deploy to Cloud Run
 ./deploy.sh
 ```
 
-This script:
-- Builds a Docker container from source
-- Deploys to Cloud Run in `us-central1`
-- Uses the service account associated with Cloud Run (no JSON key needed)
-
-### Manual Deployment
-
-This command is available as a shell script in `./deploy.sh`
+### Option 2: Cloud Build CI/CD
 
 ```bash
-gcloud run deploy preceptor-feedback-bot \
-  --source . \
-  --region us-central1 \
-  --project your-gcp-project-id \
-  --allow-unauthenticated  # Add if you want public access
+gcloud builds submit --config cloudbuild.yaml
 ```
 
-### Environment Variables for Cloud Run
+### Environment Variables (Cloud Run)
 
-Set these in Cloud Run console or via `gcloud run services update`:
+Non-sensitive variables are set in `deploy.sh`:
+- `DEPLOYMENT_ENV=cloud`
+- `GCP_PROJECT_ID`, `GCP_REGION`
+- `MODEL_NAME`, `LOG_BUCKET`
+- `OAUTH_DOMAIN_RESTRICTION=true`
+- `OAUTH_ALLOWED_DOMAINS=case.edu`
 
-```bash
-DEPLOYMENT_ENV=cloud
-GCP_PROJECT_ID=your-gcp-project-id
-GCP_REGION=us-central1
-LOG_BUCKET=your-log-bucket-name
-MODEL_NAME=gemini-2.0-flash-exp
-```
-
-**Note:** `GCP_CREDENTIALS_PATH` is NOT needed in Cloud Run - it uses Application Default Credentials automatically.
-
-### Setting Up Cloud Storage for Logs
-
-```bash
-# Create bucket for logs
-gsutil mb -p your-gcp-project-id -l us-central1 gs://your-log-bucket-name
-
-# Grant Cloud Run service account write access
-gcloud projects add-iam-policy-binding your-gcp-project-id \
-  --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
-  --role="roles/storage.objectCreator"
-```
-
-## Project Structure
-
-```
-preceptor-feedback-bot/
-├── app.py                          # Main Streamlit application
-├── config.py                       # Configuration management
-├── requirements.txt                # Python dependencies
-├── Dockerfile                      # Container definition
-├── deploy.sh                       # Deployment script
-├── .env.example                    # Example environment variables
-├── prompts/
-│   └── system_prompt.md          # AI system instructions
-├── utils/
-│   ├── app_logger.py              # Logging utilities
-│   └── vertex_ai_client.py        # Vertex AI wrapper
-├── logs/                           # Local conversation logs (gitignored)
-└── output/                         # Local feedback files (gitignored)
-```
+Sensitive variables are managed via **Secret Manager**:
+- `JWT_SECRET_KEY` → `preceptor-bot-jwt-secret`
+- `OAUTH_CLIENT_ID` → `preceptor-bot-oauth-client-id`
+- `OAUTH_CLIENT_SECRET` → `preceptor-bot-oauth-client-secret`
 
 ## Key Features
 
-### Student Name Workflow
-- **Required before starting** - Name input appears before conversation begins
-- **Auto-captured** - No "Save" button needed, name captured on input
-- **Confirmed by AI** - Model acknowledges student name in first response
-- **Logged thoroughly** - All conversation and feedback files include student name
+### Authentication & Security
+- **Google OAuth 2.0** with PKCE for secure login
+- **Domain restriction** - Limit access to specific email domains (e.g., case.edu)
+- **JWT sessions** - Secure, httpOnly cookies
+- **Firestore security rules** - Users can only access their own data
+- **Secret Manager** - Centralized secret management
 
-### Conversation Flow
-1. Preceptor enters student name
-2. Clicks "Start New Conversation"
-3. AI asks questions about the clinical encounter
-4. AI probes for specifics when responses are vague
-5. AI covers key competency domains
-6. Preceptor clicks "Generate Feedback"
-7. Review and refine feedback if needed
-8. Save and finish
+### Conversation Management
+- **Real-time chat** with HTMX for smooth UX (no page refreshes)
+- **Student name tracking** - Required before starting, preserved throughout
+- **Turn counter** - Tracks conversation progress
+- **Premature feedback detection** - Prevents AI from generating feedback too early
+- **Firestore persistence** - All conversations saved to database
 
-### Safeguards
-- Reminds preceptors to avoid patient identifiers
-- Treats all outputs as FERPA-protected educational records
-- Logs all conversations for quality improvement
-- Prevents premature feedback generation during conversation phase
+### Feedback Generation
+- **Structured output** - Structured summary + student narrative
+- **Refinement support** - Users can request changes to generated feedback
+- **Version history** - Firestore stores all refinement iterations
+- **Download as text** - Export final feedback
+
+### Dashboard
+- **Conversation history** - View all past conversations
+- **Search & filter** - Find conversations by student name, status, date
+- **Status tracking** - Active, completed, archived conversations
 
 ## Configuration Options
 
@@ -218,15 +255,13 @@ preceptor-feedback-bot/
 Edit `MODEL_NAME` in `.env`:
 
 ```bash
-# Recommended (fast, latest)
-MODEL_NAME=gemini-2.0-flash-exp
+# Recommended (stable, latest)
+MODEL_NAME=gemini-2.5-flash
 
 # Alternative options
 MODEL_NAME=gemini-1.5-pro
 MODEL_NAME=gemini-1.5-flash
 ```
-
-See `config.py` for model display name mappings.
 
 ### Conversation Parameters
 
@@ -234,84 +269,97 @@ See `config.py` for model display name mappings.
 TEMPERATURE=0.7              # 0.0 (deterministic) to 1.0 (creative)
 MAX_OUTPUT_TOKENS=2048       # Max response length
 MAX_TURNS=10                 # Max conversation exchanges
+MIN_COMPETENCY_COVERAGE=3    # Min competencies to cover
 ```
 
 ## Troubleshooting
 
-### "Failed to initialize Vertex AI client"
-- Check that Vertex AI API is enabled in your GCP project
-- Verify service account has `roles/aiplatform.user` permission
-- Confirm `GCP_CREDENTIALS_PATH` points to valid JSON key (local only)
+### "Invalid state parameter" during OAuth
+- Clear browser cookies for the site
+- Verify `OAUTH_REDIRECT_URI` matches your Cloud Run URL exactly
+- Check that redirect URI is added to OAuth client in Google Cloud Console
 
-### Student name not appearing in AI responses
-- Ensure student name is entered before clicking "Start New Conversation"
-- Check `logs/` directory - conversation JSON should include student name
-- Verify system prompt includes name confirmation instruction
+### Firestore "Missing index" errors
+- Wait 10-15 minutes for indexes to build after deployment
+- Or click the provided link in the error to create the index
+- Deploy indexes with: `firebase deploy --only firestore:indexes`
 
-### Logs not saving to Cloud Storage
-- Check bucket exists: `gsutil ls gs://your-bucket-name`
-- Verify Cloud Run service account has Storage Object Creator role
-- Check `LOG_BUCKET` environment variable is set correctly
+### Rate limit (RESOURCE_EXHAUSTED) errors
+- Verify `GCP_REGION` is set to specific region (e.g., `us-central1`), NOT "global"
+- Use stable models (e.g., `gemini-2.5-flash`), NOT experimental (`-exp` suffix)
 
-### Streamlit app not loading
-```bash
-# Check Python version
-python --version  # Should be 3.12+
-
-# Reinstall dependencies
-pip install -r requirements.txt --upgrade
-
-# Clear Streamlit cache
-rm -rf ~/.streamlit
-```
+### OAuth redirect mismatch
+- Ensure `OAUTH_REDIRECT_URI` in Cloud Run matches authorized redirect URIs in OAuth client
+- Format: `https://your-service-url/auth/callback`
 
 ## Development Guidelines
 
-### Editing Prompts
+### Editing AI Behavior
 
-To modify AI behavior, edit `prompts/system_prompt.md`:
-- Conversation style and tone
-- Question types and probing logic
-- Competency framework
-- Output format
+To modify conversation style, questions, or output format, edit `prompts/system_prompt.md`. **Do NOT remove** the instruction about waiting to generate feedback - this prevents premature feedback generation.
 
-**Important:** Do NOT change the instruction about waiting to generate feedback until explicitly asked. This prevents premature feedback generation.
+### Testing Locally
 
-### Detecting Premature Feedback
+```bash
+# Run the test suite
+pytest
 
-The system detects if the AI generates formal feedback during conversation phase by checking for markers in `utils/vertex_ai_client.py::_contains_formal_feedback()`. Update the `feedback_markers` array if you modify the output format.
+# Run with coverage report
+pytest --cov=app
 
-### Logging
+# Run specific test file
+pytest tests/test_survey.py -v
+```
 
-All application events use the singleton logger from `utils/app_logger.py`:
+### Dev Quick-Test (skip inventing conversations)
 
-```python
-from utils import logger
+When `DEBUG=true`, an amber **⚡ Quick Test** button appears on the dashboard. It creates a pre-seeded conversation covering multiple competencies and drops you straight onto the feedback generation page — useful for iterating on feedback formatting without running through a full conversation each time.
 
-logger.info("Message", student=student_name)
-logger.error("Error occurred", student=student_name)
-logger.conversation_started(student_name=name, model=model)
-logger.feedback_generated(student_name=name)
+```bash
+# Run development server with auto-reload
+./start-dev.sh
+
+# Or directly:
+uvicorn app.main:app --reload --port 8080 --log-level debug
+
+# Access at http://localhost:8080
+# API docs at http://localhost:8080/docs
+```
+
+### Firestore Local Emulator (Optional)
+
+```bash
+# Install Firebase CLI
+npm install -g firebase-tools
+
+# Start Firestore emulator
+firebase emulators:start --only firestore
+
+# Update .env
+FIRESTORE_EMULATOR_HOST=localhost:8080
 ```
 
 ## Security & Privacy
 
-- **FERPA Compliance**: All feedback is treated as educational record
-- **No patient identifiers**: Users reminded not to include PHI
-- **Authentication**: Currently open access; set `REQUIRE_AUTH=true` to enable (requires additional configuration)
-- **Credentials**: Service account keys should NEVER be committed to git (already in `.gitignore`)
+- **FERPA Compliance**: All feedback treated as protected educational records
+- **No PHI**: Users reminded not to include patient identifiers
+- **Domain restriction**: Optional - limit to specific email domains
+- **Firestore security rules**: Enforced at database level
+- **Secrets management**: Never commit credentials - use Secret Manager
+- **Audit logging**: All conversations logged for quality improvement
 
 ## Support & Contribution
 
-For questions or issues related to CWRU medical education workflows, contact your medical education IT team.
+For questions about CWRU medical education workflows, contact your medical education IT team.
 
 ### Making Changes
 
-1. Test locally with `streamlit run app.py`
-2. Check for errors: Python linting, type checking
-3. Update this README if you change deployment procedures
-4. Deploy to Cloud Run using `./deploy.sh`
+1. Test locally: `uvicorn app.main:app --reload --port 8080`
+2. Check linting: `ruff check app/`
+3. Update documentation if changing deployment procedures
+4. Deploy: `./deploy.sh`
+5. Verify in production
 
 ## License
 
-Internal use only - CWRU School of Medicine
+Internal use only - Case Western Reserve University School of Medicine
