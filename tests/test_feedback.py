@@ -24,7 +24,8 @@ class TestFeedbackGeneration:
         mock_vertex = Mock()
         mock_vertex.generate_feedback.return_value = (
             "**Structured Summary**\n\nStrengths:\n- Good clinical reasoning\n\n"
-            "**Student-Facing Narrative**\n\nYou demonstrated good clinical reasoning."
+            "**Student-Facing Narrative**\n\nYou demonstrated good clinical reasoning.",
+            None,
         )
         mock_vertex_class.return_value = mock_vertex
 
@@ -103,7 +104,7 @@ class TestFeedbackGeneration:
     ):
         """Test that generating feedback marks conversation with has_feedback flag."""
         mock_vertex = Mock()
-        mock_vertex.generate_feedback.return_value = "Generated feedback"
+        mock_vertex.generate_feedback.return_value = ("Generated feedback", None)
         mock_vertex_class.return_value = mock_vertex
 
         conv = await mock_firestore.create_conversation(

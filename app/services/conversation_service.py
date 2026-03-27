@@ -270,7 +270,7 @@ class ConversationService:
         ai_client.restore_conversation(conversation_history)
 
         # Generate feedback
-        feedback_content = ai_client.generate_feedback()
+        feedback_content, rating = ai_client.generate_feedback()
 
         # Create feedback object
         feedback = await self.firestore.create_feedback(
@@ -278,6 +278,7 @@ class ConversationService:
             user_id=conversation.user_id,
             student_name=conversation.student_name,
             initial_content=feedback_content,
+            rating=rating,
         )
 
         return feedback

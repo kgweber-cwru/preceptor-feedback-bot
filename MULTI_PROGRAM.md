@@ -72,13 +72,17 @@ line (e.g., `Overall Rating: 4/5` or `Overall Rating: Meets Expectations`). Vali
 MSA system prompt development.
 
 ### Tasks
-- [ ] Add extraction logic in `vertex_ai_client.py::generate_feedback()` — regex pass after generation
-- [ ] Handle graceful failure (rating not found → `None`, no crash)
-- [ ] Pass extracted rating through to `ConversationService` and into Firestore write
-- [ ] Validate extraction with both `numeric` and `text` rating formats
+- [x] Add extraction logic in `vertex_ai_client.py::generate_feedback()` — regex pass after generation
+- [x] Handle graceful failure (rating not found → `None`, no crash)
+- [x] Pass extracted rating through to `ConversationService` and into Firestore write
+- [ ] Validate extraction with both `numeric` and `text` rating formats — covered in Phase 8 tests
 
 ### Notes
-<!-- progress notes go here -->
+2026-03-27 — Complete. Added `_extract_rating()` to `VertexAIClient`: searches for the
+`**Clinical Performance**: ...` bullet; returns `int` for `RATING_TYPE=numeric` (parses leading
+digit), `str` for `RATING_TYPE=text`, `None` on any miss or error. `generate_feedback()` now
+returns `(content, rating)` tuple. `ConversationService` unpacks it and passes `rating` to
+`firestore.create_feedback()`. Three test mocks updated to return tuples. All 77 tests pass.
 
 ---
 

@@ -394,7 +394,7 @@ def mock_vertex_client():
         }
 
     mock.send_message = Mock(side_effect=_mock_send_message)
-    mock.generate_feedback = Mock(return_value="**Structured Summary**\n\nStrengths:\n- Good clinical reasoning\n\nAreas for Improvement:\n- Communication skills\n\n**Student-Facing Narrative**\n\nYou demonstrated strong clinical reasoning...")
+    mock.generate_feedback = Mock(return_value=("**Structured Summary**\n\nStrengths:\n- Good clinical reasoning\n\nAreas for Improvement:\n- Communication skills\n\n**Student-Facing Narrative**\n\nYou demonstrated strong clinical reasoning...", None))
     mock.refine_feedback = Mock(return_value="**Structured Summary** (REFINED)\n\nStrengths:\n- Excellent clinical reasoning\n\nAreas for Improvement:\n- Communication skills\n\n**Student-Facing Narrative**\n\nYou demonstrated excellent clinical reasoning...")
     return mock
 
