@@ -157,12 +157,19 @@ Make the survey template selectable per-program without building a full config-d
 ## Phase 8 — Tests
 
 ### Tasks
-- [ ] Update `tests/conftest.py` mock fixtures to include `program` and `rating` fields
-- [ ] Add tests for rating extraction: valid numeric, valid text, missing/malformed input
-- [ ] Confirm all existing MD tests pass unchanged
+- [x] Update `tests/conftest.py` mock fixtures to include `program` and `rating` fields
+- [x] Add tests for rating extraction: valid numeric, valid text, missing/malformed input
+- [x] Confirm all existing MD tests pass unchanged
 
 ### Notes
-<!-- progress notes go here -->
+2026-03-27 — Complete. Added four new test files (105 new tests, 182 total):
+- `test_vertex_ai_client.py` — `_extract_rating` (text/numeric/edge cases),
+  `_contains_formal_feedback`, `_fix_markdown_formatting`, `should_conclude_conversation`
+- `test_markdown.py` — `markdown_to_html` and `_fix_definition_lists` (full coverage)
+- `test_utils.py` — `timeago` and `format_datetime` (full coverage)
+- `test_firestore_service.py` — write/read operations with mocked Firestore client;
+  verifies `program` and `rating` fields are persisted correctly
+Overall coverage: 62% → 74% (threshold 70% now passing).
 
 ---
 
