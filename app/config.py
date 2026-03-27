@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     # ===== Program Settings =====
     PROGRAM_ID: str = os.getenv("PROGRAM_ID", "md")
     PROGRAM_NAME: str = os.getenv("PROGRAM_NAME", "University MD Program")
-    PROGRAM_COLOR: str = os.getenv("PROGRAM_COLOR", "#0a3161")
+    PROGRAM_COLOR: str = os.getenv("PROGRAM_COLOR", "#0a3161")  # MD: #0a3161, MSA: #1565a0
     # RATING_TYPE controls how the AI asks for a student rating and how it is parsed.
     # "text"    — qualitative scale (e.g. "Meets Expectations", "Exceeds Expectations")
     # "numeric" — numeric scale (e.g. 1–5)

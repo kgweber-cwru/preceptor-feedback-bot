@@ -92,14 +92,18 @@ Inject program name and accent color into templates. MD keeps existing styling; 
 distinct but CWRU-appropriate accent.
 
 ### Tasks
-- [ ] Add CSS custom properties (`--program-accent`, `--program-accent-dark`) to `app/templates/base.html`
-- [ ] Inject `PROGRAM_NAME` and `PROGRAM_COLOR` into Jinja2 template context (global or per-route)
-- [ ] Display `PROGRAM_NAME` in header and page title
-- [ ] Display `PROGRAM_NAME` on login page
-- [ ] Confirm MSA accent color (placeholder: `#2e7d5e`; update when design assets arrive)
+- [x] Add CSS custom properties (`--program-accent`, `--program-accent-dark`) to `app/templates/base.html`
+- [x] Inject `PROGRAM_NAME` and `PROGRAM_COLOR` into Jinja2 template context (global or per-route)
+- [x] Display `PROGRAM_NAME` in header and page title
+- [x] Display `PROGRAM_NAME` on login page
+- [x] Confirm MSA accent color — settled on `#1565a0` (medium steel blue, distinct from MD navy `#0a3161`)
 
 ### Notes
-<!-- progress notes go here -->
+2026-03-27 — Complete. `program_name`, `program_color`, `program_id` added as Jinja2 globals in
+`dependencies.py`. `base.html` injects `--program-accent` and `--program-accent-dark` as CSS
+custom properties on `:root`; nav brand and loading spinner use `var(--program-accent)` via
+inline style. Program name appears as a small sub-label beneath the app name in the nav and as
+a coloured line on the login page. Page `<title>` includes program name. All 77 tests pass.
 
 ---
 
