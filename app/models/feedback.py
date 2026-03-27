@@ -44,6 +44,11 @@ class Feedback(BaseModel):
     conversation_id: str = Field(..., description="Reference to conversation")
     user_id: str = Field(..., description="Reference to user who generated this")
     student_name: str = Field(..., description="Student being evaluated")
+    program: str = Field(default="md", description="Program identifier (e.g. md, msa)")
+    rating: Optional[str | int] = Field(
+        None,
+        description="Extracted student rating (text scale or numeric, depending on program)",
+    )
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     versions: List[FeedbackVersion] = Field(default_factory=list)

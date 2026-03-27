@@ -48,14 +48,17 @@ Add `program` field to conversation, feedback, and survey Firestore documents.
 Add `rating` field to feedback documents (structured extracted value).
 
 ### Tasks
-- [ ] Add `program: str` to `app/models/conversation.py`
-- [ ] Add `program: str` and `rating: Optional[str | int]` to `app/models/feedback.py`
-- [ ] Add `program: str` to `app/models/survey.py`
-- [ ] Update `app/services/firestore_service.py` write methods to populate `program` from `settings.PROGRAM_ID`
-- [ ] Update `app/services/firestore_service.py` to write `rating` field on feedback documents
+- [x] Add `program: str` to `app/models/conversation.py`
+- [x] Add `program: str` and `rating: Optional[str | int]` to `app/models/feedback.py`
+- [x] Add `program: str` to `app/models/survey.py`
+- [x] Update `app/services/firestore_service.py` write methods to populate `program` from `settings.PROGRAM_ID`
+- [x] Update `app/services/firestore_service.py` to write `rating` field on feedback documents
 
 ### Notes
-<!-- progress notes go here -->
+2026-03-26 — Complete. All three models updated with `program` (default `"md"` for backward
+compat with existing Firestore documents). `Feedback` also gets `rating: Optional[str | int]`.
+`create_feedback()` signature updated to accept `rating`; mock in `tests/conftest.py` updated
+to match. All 77 tests pass.
 
 ---
 

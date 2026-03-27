@@ -42,6 +42,7 @@ class Survey(SurveyBase):
     conversation_id: str
     user_id: str
     student_name: str
+    program: str = "md"
     submitted_at: datetime
     skipped: bool = False
 

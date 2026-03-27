@@ -187,7 +187,7 @@ class MockFirestoreService:
         return summaries
 
     # Feedback operations
-    async def create_feedback(self, conversation_id: str, user_id: str, student_name: str, initial_content: str):
+    async def create_feedback(self, conversation_id: str, user_id: str, student_name: str, initial_content: str, rating=None):
         feedback_id = self._generate_id()
         initial_version = FeedbackVersion(
             version=1,
@@ -201,6 +201,7 @@ class MockFirestoreService:
             conversation_id=conversation_id,
             user_id=user_id,
             student_name=student_name,
+            rating=rating,
             generated_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
             versions=[initial_version],
