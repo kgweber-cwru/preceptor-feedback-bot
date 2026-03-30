@@ -1,12 +1,13 @@
 #!/bin/bash
 # Deploy the MSA Program instance of the Preceptor Feedback Bot to Cloud Run.
-# Secrets must be set up first: ./setup_secrets.sh (run once for the project)
-# Then grant the MSA service account access: ./setup_secrets_msa.sh
+# Prereq: ./setup_secrets.sh must have been run once for the project.
+# The MSA service reuses the same service account as the MD service — no separate SA setup needed.
 set -e
 
 SERVICE_NAME="preceptor-feedback-msa"
 PROJECT="meded-gcp-sandbox"
 REGION="us-central1"
+SERVICE_ACCOUNT="preceptor-feedback-bot@meded-gcp-sandbox.iam.gserviceaccount.com"
 # TODO: Replace with actual MSA Cloud Run URL after first deploy
 REDIRECT_URI="https://preceptor-feedback-msa-hki4fdufla-uc.a.run.app/auth/callback"
 LOG_BUCKET="meded-feedback-bot-logs"
@@ -17,6 +18,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --source . \
   --region "${REGION}" \
   --project "${PROJECT}" \
+  --service-account "${SERVICE_ACCOUNT}" \
   --timeout 600 \
   --set-env-vars="\
 DEPLOYMENT_ENV=cloud,\

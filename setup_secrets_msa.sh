@@ -1,12 +1,18 @@
 #!/bin/bash
-# Grant the MSA Cloud Run service account access to the shared secrets.
-# Run this AFTER setup_secrets.sh has created the secrets for the first time.
-# The secrets themselves are shared between MD and MSA instances.
+# Grant a service account access to the shared secrets for the MSA deployment.
+#
+# In the standard setup, the MSA Cloud Run service reuses the existing SA
+# (preceptor-feedback-bot@meded-gcp-sandbox.iam.gserviceaccount.com), which already
+# has Secret Manager access from the original setup_secrets.sh run.
+# In that case, you do NOT need to run this script.
+#
+# Only run this if you are using a different/new service account for MSA.
 set -e
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
@@ -16,17 +22,17 @@ if [ -z "$PROJECT_ID" ]; then
   exit 1
 fi
 
-SERVICE_NAME="preceptor-feedback-msa"
+# Change this to the SA you want to grant access to
+MSA_SA="preceptor-feedback-bot@${PROJECT_ID}.iam.gserviceaccount.com"
 
-echo -e "${BLUE}Looking up service account for ${SERVICE_NAME}...${NC}"
-
-# After first deploy, Cloud Run uses the default compute service account.
-# If you've assigned a custom SA to the MSA service, update this line.
-PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
-MSA_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
-
-echo -e "${GREEN}Service account: ${MSA_SA}${NC}"
+echo -e "${YELLOW}Note: This script is only needed if the MSA service uses a different SA than MD.${NC}"
+echo -e "${YELLOW}The standard setup reuses ${MSA_SA} — which already has access.${NC}"
 echo ""
+read -p "Continue granting access for ${MSA_SA}? (y/n): " confirm
+if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+  echo "Aborted."
+  exit 0
+fi
 
 SECRET_NAMES=(
   "preceptor-bot-jwt-secret"
@@ -45,5 +51,4 @@ for SECRET in "${SECRET_NAMES[@]}"; do
 done
 
 echo ""
-echo -e "${GREEN}MSA service account granted access to all shared secrets.${NC}"
-echo "Next: ./deploy-msa.sh"
+echo -e "${GREEN}Service account granted access to all shared secrets.${NC}"

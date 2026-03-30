@@ -6,6 +6,7 @@ set -e
 SERVICE_NAME="preceptor-feedback-md"
 PROJECT="meded-gcp-sandbox"
 REGION="us-central1"
+SERVICE_ACCOUNT="preceptor-feedback-bot@meded-gcp-sandbox.iam.gserviceaccount.com"
 REDIRECT_URI="https://preceptor-feedback-md-hki4fdufla-uc.a.run.app/auth/callback"
 LOG_BUCKET="meded-feedback-bot-logs"
 
@@ -15,6 +16,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --source . \
   --region "${REGION}" \
   --project "${PROJECT}" \
+  --service-account "${SERVICE_ACCOUNT}" \
   --timeout 600 \
   --set-env-vars="\
 DEPLOYMENT_ENV=cloud,\
