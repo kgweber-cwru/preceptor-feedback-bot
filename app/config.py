@@ -60,7 +60,7 @@ class Settings(BaseSettings):
 
     # System Prompt Path
     SYSTEM_PROMPT_PATH: str = os.getenv(
-        "SYSTEM_PROMPT_PATH", "./prompts/system_prompt.md"
+        "SYSTEM_PROMPT_PATH", "./prompts/system_prompt_md.md"
     )
 
     # ===== Program Settings =====
