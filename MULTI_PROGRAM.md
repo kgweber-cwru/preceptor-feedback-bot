@@ -129,28 +129,35 @@ format, this may be a no-op.
 Make the survey template selectable per-program without building a full config-driven system.
 
 ### Tasks
-- [ ] Rename current survey template to `survey_default.html` (or extract into a named partial)
-- [ ] Add `SURVEY_TEMPLATE` config var that selects which template to render
-- [ ] Update `app/api/survey.py` to use the configured template name
+- [ ] ~~Rename current survey template to `survey_default.html`~~ — skipped, not needed
+- [x] Add `SURVEY_TEMPLATE` config var that selects which template to render
+- [x] Update `app/api/survey.py` to use `settings.SURVEY_TEMPLATE`
 - [ ] When MSA survey requirements land: add `survey_msa.html` and point config at it
 
 ### Notes
-<!-- progress notes go here -->
+2026-03-30 — Complete (for now). Both programs use `survey.html` via `SURVEY_TEMPLATE=survey.html`.
+`show_survey()` now renders `settings.SURVEY_TEMPLATE` instead of a hardcoded string. Adding an
+MSA-specific template later requires only a new file + env var change, no route changes.
 
 ---
 
 ## Phase 7 — Deployment Infrastructure
 
 ### Tasks
-- [ ] Create `deploy-md.sh` (program-specific wrapper around `deploy.sh`)
-- [ ] Create `deploy-msa.sh`
-- [ ] Create `.env.msa.example`
-- [ ] Update `setup_secrets.sh` to accept a program argument, or create `setup_secrets_msa.sh`
-- [ ] Use distinct Cloud Run service names: `preceptor-feedback-md`, `preceptor-feedback-msa`
-- [ ] Update `CLAUDE.md` to document two-service deployment
+- [x] Create `deploy-md.sh`
+- [x] Create `deploy-msa.sh`
+- [x] Create `.env.msa.example`
+- [x] Create `setup_secrets_msa.sh` (grants MSA service account access to shared secrets)
+- [x] Distinct Cloud Run service names: `preceptor-feedback-md`, `preceptor-feedback-msa`
+- [ ] Update `CLAUDE.md` to document two-service deployment — deferred until after first MSA deploy
+- [ ] Update `REDIRECT_URI` in `deploy-msa.sh` after first MSA Cloud Run deploy
 
 ### Notes
-<!-- progress notes go here -->
+2026-03-30 — Complete. `deploy-md.sh` and `deploy-msa.sh` are standalone scripts with all
+program-specific env vars inlined. Secrets are shared between programs; `setup_secrets_msa.sh`
+handles the IAM grant for the MSA service account. `deploy.sh` left unchanged for backward compat.
+**Action needed after first MSA deploy:** copy the real Cloud Run URL into `REDIRECT_URI` in
+`deploy-msa.sh` and add it to the OAuth client in Google Cloud Console.
 
 ---
 

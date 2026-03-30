@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     # "numeric" — numeric scale (e.g. 1–5)
     RATING_TYPE: str = os.getenv("RATING_TYPE", "text")
 
+    # Survey template to render. Both programs use the default for now; set to
+    # a program-specific filename (e.g. "survey_msa.html") when needed.
+    SURVEY_TEMPLATE: str = os.getenv("SURVEY_TEMPLATE", "survey.html")
+
     # ===== NEW: OAuth 2.0 Settings =====
     OAUTH_CLIENT_ID: str = os.getenv("OAUTH_CLIENT_ID", "")
     OAUTH_CLIENT_SECRET: str = os.getenv("OAUTH_CLIENT_SECRET", "")
