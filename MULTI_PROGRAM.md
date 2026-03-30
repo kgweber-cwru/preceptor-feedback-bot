@@ -148,7 +148,7 @@ MSA-specific template later requires only a new file + env var change, no route 
 - [x] Create `deploy-msa.sh`
 - [x] Create `.env.msa.example`
 - [x] Create `setup_secrets_msa.sh` (grants MSA service account access to shared secrets)
-- [x] Distinct Cloud Run service names: `preceptor-feedback-md`, `preceptor-feedback-msa`
+- [x] Distinct Cloud Run service names: `preceptor-feedback-bot`, `preceptor-feedback-msa`
 - [ ] Update `CLAUDE.md` to document two-service deployment — deferred until after first MSA deploy
 - [ ] Update `REDIRECT_URI` in `deploy-msa.sh` after first MSA Cloud Run deploy
 
@@ -177,6 +177,12 @@ handles the IAM grant for the MSA service account. `deploy.sh` left unchanged fo
 - `test_firestore_service.py` — write/read operations with mocked Firestore client;
   verifies `program` and `rating` fields are persisted correctly
 Overall coverage: 62% → 74% (threshold 70% now passing).
+
+2026-03-30 — Added `tests/test_multi_program.py` (28 tests covering config validation,
+prompt file existence, SURVEY_TEMPLATE wiring, dev quick-test routes, and program/rating
+field persistence on all Firestore models). Also cleaned up archive/ and deploy.sh.
+Two config tests fixed to be environment-independent (invariant checks rather than
+exact-default assertions, since .env may be set to either program). Final: 210 passed, 75%.
 
 ---
 
