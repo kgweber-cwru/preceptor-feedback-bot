@@ -63,6 +63,7 @@ class Conversation(BaseModel):
     conversation_id: str = Field(..., description="Firestore document ID")
     user_id: str = Field(..., description="Reference to user who created this")
     student_name: str = Field(..., description="Student being evaluated")
+    program: str = Field(default="md", description="Program identifier (e.g. md, msa)")
     status: ConversationStatus = Field(default=ConversationStatus.ACTIVE)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -311,7 +311,9 @@ ABSOLUTE RULES:
                 }
             )
 
-            return self._fix_markdown_formatting(response.text)
+            formatted = self._fix_markdown_formatting(response.text)
+            rating = self._extract_rating(formatted)
+            return formatted, rating
 
         except Exception as e:
             raise Exception(f"Error generating feedback: {str(e)}")
@@ -372,6 +374,31 @@ Use the same exact format as the original: `### Structured Summary` and `### Stu
 
         except Exception as e:
             raise Exception(f"Error refining feedback: {str(e)}")
+
+    def _extract_rating(self, feedback_text: str) -> Optional[str | int]:
+        """
+        Extract the student rating from generated feedback text.
+
+        Looks for the '**Clinical Performance**: ...' bullet and returns the value.
+        For RATING_TYPE='numeric', returns the leading integer (e.g. '4/5' → 4).
+        For RATING_TYPE='text', returns the string as-is.
+        Returns None if the line is absent or cannot be parsed.
+        """
+        try:
+            match = re.search(r"\*\*Clinical Performance\*\*:\s*(.+)", feedback_text)
+            if not match:
+                return None
+            raw_value = match.group(1).strip()
+            if not raw_value:
+                return None
+            if settings.RATING_TYPE == "numeric":
+                num_match = re.match(r"^(\d+)", raw_value)
+                if num_match:
+                    return int(num_match.group(1))
+                return None
+            return raw_value
+        except Exception:
+            return None
 
     def _fix_markdown_formatting(self, text: str) -> str:
         """

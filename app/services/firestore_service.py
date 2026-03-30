@@ -134,6 +134,7 @@ class FirestoreService:
         conv_dict = {
             "user_id": user_id,
             "student_name": student_name,
+            "program": settings.PROGRAM_ID,
             "status": ConversationStatus.ACTIVE.value,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
@@ -376,6 +377,7 @@ class FirestoreService:
         user_id: str,
         student_name: str,
         initial_content: str,
+        rating: Optional[str | int] = None,
     ) -> Feedback:
         """
         Create new feedback document.
@@ -403,6 +405,8 @@ class FirestoreService:
             "conversation_id": conversation_id,
             "user_id": user_id,
             "student_name": student_name,
+            "program": settings.PROGRAM_ID,
+            "rating": rating,
             "generated_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
             "versions": [initial_version.model_dump()],
@@ -525,6 +529,7 @@ class FirestoreService:
             "conversation_id": conversation_id,
             "user_id": user_id,
             "student_name": student_name,
+            "program": settings.PROGRAM_ID,
             "helpfulness_rating": survey_data.helpfulness_rating.value if survey_data.helpfulness_rating else None,
             "likelihood_rating": survey_data.likelihood_rating.value if survey_data.likelihood_rating else None,
             "comments": survey_data.comments,

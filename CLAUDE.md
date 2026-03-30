@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A conversational AI tool that helps medical school faculty provide structured, competency-based feedback on medical students after clinical encounters. Built with FastAPI, HTMX, Google Vertex AI (Gemini), Google Cloud Firestore, and Google OAuth 2.0.
+A conversational AI tool that helps medical school faculty provide structured, competency-based feedback on students after clinical encounters. Built with FastAPI, HTMX, Google Vertex AI (Gemini), Google Cloud Firestore, and Google OAuth 2.0.
 
-The application guides preceptors through a brief (3–5 minute) conversation, then generates two outputs organized by CWRU School of Medicine's core competencies:
+The application supports multiple training programs, each deployed as a separate Cloud Run service with its own system prompt, branding, and rating scale. Current programs: **MD Program** and **MS in Anesthesia (MSA) Program**.
+
+The application guides preceptors through a brief (3–5 minute) conversation, then generates two outputs organized by the program's competency framework:
 1. **Structured Summary** — Structured bullets (strengths, areas for improvement, suggestions)
 2. **Student-Facing Narrative** — Constructive, supportive feedback for the student
 
@@ -39,7 +41,8 @@ pytest tests/test_survey.py -v  # specific file
 ```bash
 # Deploy to Cloud Run
 ./setup_secrets.sh  # one-time Secret Manager setup
-./deploy.sh
+./deploy.sh         # MD program (original service, preceptor-feedback-bot)
+./deploy-msa.sh     # MSA program (preceptor-feedback-msa)
 ```
 
 ## Architecture
@@ -50,7 +53,7 @@ pytest tests/test_survey.py -v  # specific file
 - `app/main.py` — FastAPI app initialization, middleware registration, route mounting, lifespan handler
 
 **Configuration:**
-- `app/config.py` — `Settings` class (pydantic_settings). Singleton exposed as `settings`. All model settings (`MODEL_NAME`, `TEMPERATURE`, `MAX_OUTPUT_TOKENS`), conversation parameters (`MAX_TURNS`), OAuth/JWT config, Firestore settings, and deployment flags are centralized here. Key method: `settings.get_model_display_name()`.
+- `app/config.py` — `Settings` class (pydantic_settings). Singleton exposed as `settings`. All model settings (`MODEL_NAME`, `TEMPERATURE`, `MAX_OUTPUT_TOKENS`), conversation parameters (`MAX_TURNS`), OAuth/JWT config, Firestore settings, deployment flags, and program settings are centralized here. Program settings: `PROGRAM_ID`, `PROGRAM_NAME`, `PROGRAM_COLOR`, `RATING_TYPE`, `SURVEY_TEMPLATE`. Key method: `settings.get_model_display_name()`.
 
 **Authentication:**
 - `app/middleware/auth_middleware.py` — JWT validation from `httpOnly` cookies; injects current user into request state
@@ -62,9 +65,10 @@ pytest tests/test_survey.py -v  # specific file
 - `app/services/vertex_ai_client.py` — Wrapper around `google-genai` SDK. Key methods:
   - `start_conversation()` → initial greeting string
   - `send_message(user_message)` → `(response_text, contains_feedback)` tuple
-  - `generate_feedback(student_name)` → structured feedback string; calls `_fix_markdown_formatting()` on the result
+  - `generate_feedback()` → `(feedback_text, rating)` tuple; calls `_fix_markdown_formatting()` then `_extract_rating()` on the result
   - `refine_feedback(refinement_request)` → refined feedback string; also calls `_fix_markdown_formatting()`
   - `_fix_markdown_formatting(text)` → post-processes LLM output: converts definition-list syntax (`Term\n: text`) into proper `* **Term**: text` bullets, handles header-only bullets followed by sub-items (`Strengths\n:` → `* **Strengths**:` with nested sub-bullets), and ensures blank lines after `###` headings
+  - `_extract_rating(text)` → parses the `**Clinical Performance**` bullet; returns `int` for `RATING_TYPE=numeric`, `str` for `RATING_TYPE=text`, `None` if absent
   - `_contains_formal_feedback(text)` → detects premature feedback (see invariant below)
   - `_call_with_backoff(func, ...)` → exponential backoff for rate limits
 
@@ -77,7 +81,9 @@ pytest tests/test_survey.py -v  # specific file
 - `app/api/feedback.py` — Generate feedback, refine feedback, finish session
 - `app/api/survey.py` — Display, submit, and skip post-session survey
 - `app/api/user.py` — Dashboard, user profile
-- `app/api/dev.py` — Dev-only routes (registered only when `settings.DEBUG=True`). `GET /dev/quick-test` creates a pre-seeded 5-turn conversation for "Alex Johnson (Quick Test)" covering Patient Care, Communication, Knowledge, Professionalism, and an area for improvement, then redirects to the conversation page ready to generate feedback. Returns 404 when `DEPLOYMENT_ENV != "local"`.
+- `app/api/dev.py` — Dev-only routes (registered only when `settings.DEBUG=True`). Returns 404 when `DEPLOYMENT_ENV != "local"`.
+  - `GET /dev/quick-test` — MD scenario: pre-seeded 5-turn outpatient primary care conversation for "Alex Johnson (Quick Test)", text rating ("Exceeds expectations")
+  - `GET /dev/quick-test-msa` — MSA scenario: pre-seeded 5-turn emergent OR conversation for "Jordan Lee (Quick Test — MSA)", numeric rating (4/5)
 
 **Data Models:**
 - `app/models/user.py`, `conversation.py`, `feedback.py`, `survey.py` — Pydantic models for all Firestore documents
@@ -97,7 +103,9 @@ pytest tests/test_survey.py -v  # specific file
   - Paragraphs wrapped in `<p>` tags
 
 **Prompting:**
-- `prompts/system_prompt.md` — Canonical system instruction. Controls conversational style, probing behavior, competency framework, and the critical rule: **do NOT generate formal feedback during the conversation phase**.
+- `prompts/system_prompt_md.md` — MD program system prompt. Controls conversational style, CWRU competency framework, text rating scale, and the critical rule: **do NOT generate formal feedback during the conversation phase**.
+- `prompts/system_prompt_msa.md` — MSA program system prompt. Same structure and output format; uses MSA competencies and a 1–5 numeric rating scale.
+- Active prompt selected by `SYSTEM_PROMPT_PATH` env var (defaults to `system_prompt_md.md`).
 
 ### Critical Behavior Invariant: Premature Feedback Detection
 
@@ -123,9 +131,9 @@ The conversation phase must NOT produce final feedback until `generate_feedback(
 
 Collections:
 - `users/{user_id}` — email, name, domain, last login
-- `conversations/{conversation_id}` — user_id, student_name, model, status, messages[], turn_count, timestamps
-- `feedback/{feedback_id}` — conversation_id, user_id, content, versions[], is_final
-- `surveys/{survey_id}` — conversation_id, user_id, student_name, helpfulness_rating, likelihood_rating, comments, contact_name, contact_email, skipped, submitted_at
+- `conversations/{conversation_id}` — user_id, student_name, program, model, status, messages[], turn_count, timestamps
+- `feedback/{feedback_id}` — conversation_id, user_id, student_name, program, rating, content, versions[], timestamps
+- `surveys/{survey_id}` — conversation_id, user_id, student_name, program, helpfulness_rating, likelihood_rating, comments, contact_name, contact_email, skipped, submitted_at
 - `oauth_sessions/{session_id}` — short-lived OAuth PKCE state
 
 ### Session / State Management
@@ -141,7 +149,7 @@ There is no in-process session state. All state is persisted in Firestore and re
 ## Common Modification Patterns
 
 ### Change conversational behavior, questions, or tone
-Edit `prompts/system_prompt.md`. Keep the "only gather information" instruction intact unless also updating the feedback detection logic.
+Edit the relevant program prompt (`prompts/system_prompt_md.md` or `prompts/system_prompt_msa.md`). Keep the "only gather information" instruction intact unless also updating the feedback detection logic.
 
 ### Switch model
 Update `MODEL_NAME` in `.env` or Cloud Run environment variables. Add a display name mapping in `app/config.py::get_model_display_name()` if needed.
@@ -189,7 +197,7 @@ Markers: `integration`, `unit`, `auth`, `survey` (defined in `pytest.ini`).
 - System prompt reminds preceptors not to include patient identifiers (PHI)
 - All feedback treated as FERPA-protected educational records
 - Firestore security rules enforce per-user data access at the database level
-- `OAUTH_DOMAIN_RESTRICTION=true` + `OAUTH_ALLOWED_DOMAINS` limit logins to trusted email domains (e.g., `case.edu`)
+- `OAUTH_DOMAIN_RESTRICTION` + `OAUTH_ALLOWED_DOMAINS` can limit logins to specific domains; both current deployments use `OAUTH_DOMAIN_RESTRICTION=false` (any Google account permitted)
 - Service account JSON files are `.gitignore`d — never commit credentials
 
 ## Critical Configuration Requirements
@@ -208,12 +216,21 @@ MODEL_NAME=gemini-2.5-flash     # NOT "gemini-2.0-flash-exp"
 
 ## Dev Quick-Test Feature
 
-When `DEBUG=true` (local dev), the dashboard shows an amber **⚡ Quick Test** button. Clicking it hits `GET /dev/quick-test`, which:
-1. Creates a Firestore conversation for student "Alex Johnson (Quick Test)"
-2. Seeds 11 pre-written messages (5 user, 5 assistant turns + greeting) covering Patient Care, Communication, Knowledge for Practice, Professionalism, and one area for improvement (oral presentations)
-3. Redirects to `/conversations/{id}` — preceptor lands directly on the conversation page and can immediately click "Generate Feedback"
+When `DEBUG=true` (local dev), the dashboard shows an amber **⚡ Quick Test** button. Both endpoints seed 11 pre-written messages (5 user + 5 assistant turns + greeting) and redirect to the conversation page ready to generate feedback. Both return 404 if `DEPLOYMENT_ENV != "local"`.
 
-This avoids having to invent patient scenarios for every formatting/UX test iteration. The endpoint returns 404 if `DEPLOYMENT_ENV != "local"`.
+**`GET /dev/quick-test`** — MD scenario
+- Student: "Alex Johnson (Quick Test)"
+- Setting: outpatient primary care clinic, half-day
+- Covers: Patient Care, Communication, Knowledge for Practice, Professionalism
+- Area for improvement: oral presentation structure (SOAP)
+- Rating: text — "Exceeds expectations"
+
+**`GET /dev/quick-test-msa`** — MSA scenario
+- Student: "Jordan Lee (Quick Test — MSA)"
+- Setting: OR, emergent overnight appendectomy
+- Covers: Patient Care, Knowledge for Practice, Teamwork, Communication
+- Area for improvement: decisiveness at the bedside; PACU handoff structure
+- Rating: numeric — 4/5
 
 ## Deployment Environments
 
@@ -223,8 +240,10 @@ This avoids having to invent patient scenarios for every formatting/UX test iter
 - OAuth secrets in `.env`
 
 **Cloud (`DEPLOYMENT_ENV=cloud`):**
-- Environment variables set in Cloud Run service definition (`deploy.sh`)
-- OAuth + JWT secrets injected from Secret Manager (configured by `setup_secrets.sh`)
-- Uses Application Default Credentials (Cloud Run service account)
+- Two services, one codebase: `preceptor-feedback-bot` (MD, use `deploy.sh`) and `preceptor-feedback-msa` (MSA, use `deploy-msa.sh`)
+- Both use service account `preceptor-feedback-bot@meded-gcp-sandbox.iam.gserviceaccount.com`
+- OAuth + JWT secrets shared between services, injected from Secret Manager (configured once by `setup_secrets.sh`)
+- Uses Application Default Credentials — no key file needed
 - `CLOUD_RUN_TIMEOUT` controls request timeout (default 600s)
 - `LOG_BUCKET` enables Cloud Storage logging
+- All services tagged with label `app=preceptor-feedback-bot` for billing filters

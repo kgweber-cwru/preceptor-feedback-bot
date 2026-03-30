@@ -1,18 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Login - {{ app_name }}{% endblock %}
+{% block title %}Login - {{ app_name }} — {{ program_name }}{% endblock %}
 
 {% block content %}
-<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 px-4">
+<div class="min-h-screen flex items-center justify-center px-4"
+     style="background: linear-gradient(to bottom right, color-mix(in srgb, var(--program-accent) 8%, white), color-mix(in srgb, var(--program-accent) 18%, white))">
     <div class="max-w-md w-full">
         <!-- Card -->
         <div class="bg-white rounded-lg shadow-xl p-8">
             <!-- Logo/Icon -->
             <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style="background-color: var(--program-accent)">
                     <span class="text-3xl">🩺</span>
                 </div>
-                <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ app_name }}</h1>
+                <h1 class="text-3xl font-bold text-gray-900 mb-1">{{ app_name }}</h1>
+                <p class="text-sm font-semibold mb-2" style="color: var(--program-accent)">{{ program_name }}</p>
                 <p class="text-gray-600">AI-Powered Feedback for Medical Education</p>
             </div>
 
@@ -22,7 +24,7 @@
                     Welcome! This tool helps you provide structured, competency-based feedback on medical students after clinical encounters.
                 </p>
                 <p class="text-gray-700 mt-2">
-                    Please sign in with your CWRU Google account to continue.
+                    Please sign in with, preferably with your CWRU ID, although any Google/Gmail account will work.
                 </p>
             </div>
 

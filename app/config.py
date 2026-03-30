@@ -60,8 +60,21 @@ class Settings(BaseSettings):
 
     # System Prompt Path
     SYSTEM_PROMPT_PATH: str = os.getenv(
-        "SYSTEM_PROMPT_PATH", "./prompts/system_prompt.md"
+        "SYSTEM_PROMPT_PATH", "./prompts/system_prompt_md.md"
     )
+
+    # ===== Program Settings =====
+    PROGRAM_ID: str = os.getenv("PROGRAM_ID", "md")
+    PROGRAM_NAME: str = os.getenv("PROGRAM_NAME", "University MD Program")
+    PROGRAM_COLOR: str = os.getenv("PROGRAM_COLOR", "#0a3161")  # MD: #0a3161, MSA: #1565a0
+    # RATING_TYPE controls how the AI asks for a student rating and how it is parsed.
+    # "text"    — qualitative scale (e.g. "Meets Expectations", "Exceeds Expectations")
+    # "numeric" — numeric scale (e.g. 1–5)
+    RATING_TYPE: str = os.getenv("RATING_TYPE", "text")
+
+    # Survey template to render. Both programs use the default for now; set to
+    # a program-specific filename (e.g. "survey_msa.html") when needed.
+    SURVEY_TEMPLATE: str = os.getenv("SURVEY_TEMPLATE", "survey.html")
 
     # ===== NEW: OAuth 2.0 Settings =====
     OAUTH_CLIENT_ID: str = os.getenv("OAUTH_CLIENT_ID", "")
@@ -122,6 +135,8 @@ class Settings(BaseSettings):
             raise ValueError("GCP_PROJECT_ID must be set")
         if not self.GCP_REGION:
             raise ValueError("GCP_REGION must be set")
+        if self.RATING_TYPE not in ("text", "numeric"):
+            raise ValueError("RATING_TYPE must be 'text' or 'numeric'")
 
         # In cloud, must have LOG_BUCKET
         if self.IS_CLOUD and not self.LOG_BUCKET:
@@ -167,6 +182,9 @@ class Settings(BaseSettings):
             "oauth_enabled": bool(self.OAUTH_CLIENT_ID),
             "domain_restriction": self.OAUTH_DOMAIN_RESTRICTION,
             "debug": self.DEBUG,
+            "program_id": self.PROGRAM_ID,
+            "program_name": self.PROGRAM_NAME,
+            "rating_type": self.RATING_TYPE,
         }
 
     class Config:

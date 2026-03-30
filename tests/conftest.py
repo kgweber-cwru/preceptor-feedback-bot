@@ -187,7 +187,7 @@ class MockFirestoreService:
         return summaries
 
     # Feedback operations
-    async def create_feedback(self, conversation_id: str, user_id: str, student_name: str, initial_content: str):
+    async def create_feedback(self, conversation_id: str, user_id: str, student_name: str, initial_content: str, rating=None):
         feedback_id = self._generate_id()
         initial_version = FeedbackVersion(
             version=1,
@@ -201,6 +201,7 @@ class MockFirestoreService:
             conversation_id=conversation_id,
             user_id=user_id,
             student_name=student_name,
+            rating=rating,
             generated_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
             versions=[initial_version],
@@ -393,7 +394,7 @@ def mock_vertex_client():
         }
 
     mock.send_message = Mock(side_effect=_mock_send_message)
-    mock.generate_feedback = Mock(return_value="**Structured Summary**\n\nStrengths:\n- Good clinical reasoning\n\nAreas for Improvement:\n- Communication skills\n\n**Student-Facing Narrative**\n\nYou demonstrated strong clinical reasoning...")
+    mock.generate_feedback = Mock(return_value=("**Structured Summary**\n\nStrengths:\n- Good clinical reasoning\n\nAreas for Improvement:\n- Communication skills\n\n**Student-Facing Narrative**\n\nYou demonstrated strong clinical reasoning...", None))
     mock.refine_feedback = Mock(return_value="**Structured Summary** (REFINED)\n\nStrengths:\n- Excellent clinical reasoning\n\nAreas for Improvement:\n- Communication skills\n\n**Student-Facing Narrative**\n\nYou demonstrated excellent clinical reasoning...")
     return mock
 

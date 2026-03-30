@@ -7,6 +7,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from typing import Optional
 
+from app.config import settings
 from app.dependencies import get_current_user, get_firestore, templates
 from app.services.firestore_service import FirestoreService
 from app.models.survey import SurveyCreate, HelpfulnessRating, LikelihoodRating
@@ -41,7 +42,7 @@ async def show_survey(
             return RedirectResponse(url="/dashboard", status_code=302)
 
         return templates.TemplateResponse(
-            "survey.html",
+            settings.SURVEY_TEMPLATE,
             {
                 "request": request,
                 "conversation": conversation,

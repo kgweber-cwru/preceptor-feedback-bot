@@ -18,6 +18,9 @@ from app.utils.time_formatting import timeago
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["app_name"] = settings.APP_NAME
 templates.env.globals["version"] = settings.APP_VERSION
+templates.env.globals["program_name"] = settings.PROGRAM_NAME
+templates.env.globals["program_color"] = settings.PROGRAM_COLOR
+templates.env.globals["program_id"] = settings.PROGRAM_ID
 templates.env.filters["markdown"] = markdown_to_html
 templates.env.filters["timeago"] = timeago
 
