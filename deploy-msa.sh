@@ -19,6 +19,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --region "${REGION}" \
   --project "${PROJECT}" \
   --service-account "${SERVICE_ACCOUNT}" \
+  --labels app=preceptor-feedback-bot \
   --timeout 600 \
   --set-env-vars="\
 DEPLOYMENT_ENV=cloud,\
