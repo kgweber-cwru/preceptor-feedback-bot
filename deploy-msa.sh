@@ -8,8 +8,7 @@ SERVICE_NAME="preceptor-feedback-msa"
 PROJECT="meded-gcp-sandbox"
 REGION="us-central1"
 SERVICE_ACCOUNT="preceptor-feedback-bot@meded-gcp-sandbox.iam.gserviceaccount.com"
-# TODO: Replace with actual MSA Cloud Run URL after first deploy
-REDIRECT_URI="https://preceptor-feedback-msa-hki4fdufla-uc.a.run.app/auth/callback"
+REDIRECT_URI="https://preceptor-feedback-msa-450703468039.us-central1.run.app/auth/callback"
 LOG_BUCKET="meded-feedback-bot-logs"
 
 echo "Deploying MSA Program instance: ${SERVICE_NAME}"

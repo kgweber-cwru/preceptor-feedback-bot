@@ -25,6 +25,11 @@ output/
 logs/
 *.log
 
+# Test / coverage artifacts
+htmlcov/
+.coverage
+.pytest_cache/
+
 # IDEs
 .vscode/
 .idea/

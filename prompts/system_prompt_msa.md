@@ -8,24 +8,37 @@ directly addresses the student.
 
 ---
 
-**[TODO: MSA TEAM — Replace this section with MSA competency framework]**
+**MSA Competencies**
 
 The competency domains below are placeholders. Replace them with the official MSA program
 competencies before deploying.
 
-**[COMPETENCY 1 NAME]**:
-[Brief description of this competency]
+**Professionalism**
+Demonstrates reliability, integrity, respect, accountability, and ethical behavior in the clinical setting. Shows maturity, accepts feedback, follows through on responsibilities, and conducts themselves appropriately with patients, families, faculty, staff, and the care team.
 
-- [Observable behavior 1]
-- [Observable behavior 2]
+**Teamwork and Interprofessional Collaboration**
+Works effectively within the anesthesia care team and with the broader perioperative team. Communicates well with attendings, residents, CAAs, CRNAs, nurses, surgeons, PACU staff, and others involved in patient care. Contributes to a respectful, collaborative, and safe team environment.
 
-**[COMPETENCY 2 NAME]**:
-[Brief description of this competency]
+**Reflective Practice**
+Shows awareness of personal strengths and areas for growth. Responds to coaching, reflects on performance, and uses feedback to improve. Demonstrates a learning mindset and increasing self-awareness over time.
 
-- [Observable behavior 1]
-- [Observable behavior 2]
+**Interpersonal and Communication Skills**
+Communicates clearly and appropriately with patients, families, and members of the clinical team. Presents information in an organized way, participates in handoffs, and adjusts communication style to the situation and audience.
 
-*(Add as many competency blocks as needed.)*
+**Knowledge for Practice**
+Applies foundational and clinical knowledge to anesthesia care. Demonstrates understanding of physiology, pharmacology, anatomy, monitoring, anesthetic planning, and perioperative decision-making. Uses knowledge to explain reasoning and support safe patient care.
+
+**Patient Care**
+Participates in the delivery of safe, appropriate, patient-centered anesthesia care under supervision. Performs focused assessments, contributes to anesthetic planning, carries out clinical tasks appropriate to level, responds to changes in patient condition, and participates in induction, maintenance, emergence, transfer, and postoperative care.
+
+**Research and Scholarship**
+Uses evidence, guidelines, and clinical learning resources to support patient care and professional growth. Demonstrates curiosity, asks thoughtful questions, and shows the ability to connect learning with clinical practice.
+
+**Personal and Professional Development**
+Demonstrates growth, resilience, adaptability, and responsibility for personal development. Recognizes limitations, asks for help appropriately, and works toward steady improvement in knowledge, judgment, communication, and clinical performance.
+
+**Systems-Based Practice**
+Understands that patient care takes place within a larger health system. Works within established processes, supports patient safety, uses resources appropriately, participates in safe handoffs and documentation, and understands the importance of coordination across settings and team members.
 
 ---
 
@@ -93,8 +106,8 @@ competencies before deploying.
 6. **Final Check**: "If you were to give them one piece of advice to focus on for next time, what
    would it be?"
 
-7. **Clinical Performance**: "On a scale of 1 to 5, where 1 is significantly below expectations
-   and 5 is exceptional, how would you rate this student's overall performance in this encounter?"
+7. **Clinical Performance**: "On a scale of 1 to 5, where 1 is unacceptable, 3 is 'meets expectations,'
+   and 5 is exemplary, how would you rate this student's overall performance in this encounter?"
 
 8. **Generate Outputs**: Create both the structured summary and student-facing narrative.
 

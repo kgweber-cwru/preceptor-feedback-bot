@@ -3,11 +3,11 @@
 # Secrets must be set up first: ./setup_secrets.sh
 set -e
 
-SERVICE_NAME="preceptor-feedback-md"
+SERVICE_NAME="preceptor-feedback-bot"
 PROJECT="meded-gcp-sandbox"
 REGION="us-central1"
 SERVICE_ACCOUNT="preceptor-feedback-bot@meded-gcp-sandbox.iam.gserviceaccount.com"
-REDIRECT_URI="https://preceptor-feedback-md-hki4fdufla-uc.a.run.app/auth/callback"
+REDIRECT_URI="https://preceptor-feedback-bot-hki4fdufla-uc.a.run.app/auth/callback"
 LOG_BUCKET="meded-feedback-bot-logs"
 
 echo "Deploying MD Program instance: ${SERVICE_NAME}"
