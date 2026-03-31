@@ -120,7 +120,7 @@ async def oauth_callback(
 
         # Check domain restriction
         if not auth_service.check_domain_restriction(user_info["email"]):
-            return HTMLResponse(
+            denied_response = HTMLResponse(
                 f'''
                 <h1>Access Denied</h1>
                 <p>Your email domain ({user_info["domain"]}) is not authorized to access this application.</p>
@@ -129,6 +129,10 @@ async def oauth_callback(
                 ''',
                 status_code=403,
             )
+            # Clear any existing session cookie so a stale session from a
+            # previously-authenticated user doesn't remain active in the browser.
+            denied_response.delete_cookie(settings.SESSION_COOKIE_NAME, path="/")
+            return denied_response
 
         # Create/update user in Firestore
         firestore_service = FirestoreService()
