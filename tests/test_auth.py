@@ -291,3 +291,56 @@ class TestDomainRestriction:
 
         # Should return 403 error for disallowed domain
         assert response.status_code in [403, 302]
+
+    @pytest.mark.asyncio
+    async def test_disallowed_domain_clears_existing_session_cookie(
+        self, unauthenticated_client, monkeypatch
+    ):
+        """Test that a denied login clears any existing session cookie.
+
+        Regression: without this fix, a stale case.edu JWT could remain active
+        in the browser after a umich.edu login attempt was blocked, causing the
+        old user's conversations to appear on the dashboard.
+        """
+        from app.config import settings
+        from app.services.oauth_session_store import OAuthSession
+
+        monkeypatch.setattr(settings, "OAUTH_DOMAIN_RESTRICTION", True)
+        monkeypatch.setattr(type(settings), "OAUTH_ALLOWED_DOMAINS", property(lambda self: ["case.edu"]))
+
+        mock_session = OAuthSession(
+            state="mock_state",
+            code_verifier="mock_verifier",
+            created_at=datetime.utcnow(),
+        )
+
+        mock_auth = Mock()
+        mock_auth.exchange_code_for_tokens = AsyncMock(
+            return_value={"access_token": "mock_access_token", "id_token": "mock_id_token"}
+        )
+        mock_auth.verify_google_id_token = Mock(
+            return_value={"email": "user@umich.edu", "name": "Denied User", "picture": "https://example.com/pic.jpg", "sub": "google_789"}
+        )
+        mock_auth.extract_user_info_from_id_token = Mock(
+            return_value={"email": "user@umich.edu", "name": "Denied User", "picture_url": "https://example.com/pic.jpg", "domain": "umich.edu"}
+        )
+        mock_auth.check_domain_restriction = Mock(return_value=False)
+
+        with patch("app.api.auth.oauth_store") as mock_store, \
+             patch("app.api.auth.auth_service", mock_auth):
+
+            mock_store.get_session.return_value = mock_session
+            mock_store.delete_session.return_value = None
+
+            response = await unauthenticated_client.get(
+                "/auth/callback?code=mock_code&state=mock_state",
+                cookies={settings.SESSION_COOKIE_NAME: "stale_jwt_from_previous_user"},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 403
+        # The response must delete the session cookie so the stale session is gone.
+        # httpx represents a deleted cookie as max-age=0 or an empty/expired Set-Cookie.
+        set_cookie_header = response.headers.get("set-cookie", "")
+        assert settings.SESSION_COOKIE_NAME in set_cookie_header
+        assert "max-age=0" in set_cookie_header.lower() or 'expires=thu, 01 jan 1970' in set_cookie_header.lower()
