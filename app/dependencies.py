@@ -42,7 +42,7 @@ def get_current_user(request: Request) -> dict:
     from app.config import settings
 
     # If OAuth is completely disabled, use a mock user for testing
-    if not settings.OAUTH_CLIENT_ID or not settings.OAUTH_DOMAIN_RESTRICTION:
+    if not settings.OAUTH_CLIENT_ID:
         # Return a mock user for testing when OAuth is disabled
         return {
             "user_id": "test-user-001",
